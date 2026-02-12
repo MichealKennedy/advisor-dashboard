@@ -238,12 +238,14 @@ class AdvDash_Dashboard_Manager {
 		global $wpdb;
 
 		$defaults = array(
-			'tab'      => 'current_registrations',
-			'page'     => 1,
-			'per_page' => 50,
-			'orderby'  => 'created_at',
-			'order'    => 'desc',
-			'search'   => '',
+			'tab'          => 'current_registrations',
+			'page'         => 1,
+			'per_page'     => 50,
+			'orderby'      => 'created_at',
+			'order'        => 'desc',
+			'search'       => '',
+			'date_filter'  => '',
+			'date_field'   => 'workshop_date',
 		);
 
 		$args     = wp_parse_args( $args, $defaults );
@@ -264,6 +266,13 @@ class AdvDash_Dashboard_Manager {
 			$where_parts[]  = '( first_name LIKE %s OR last_name LIKE %s )';
 			$where_values[] = $like;
 			$where_values[] = $like;
+		}
+
+		if ( ! empty( $args['date_filter'] ) ) {
+			$allowed_date_fields = array( 'workshop_date', 'date_of_lead_request' );
+			$date_col = in_array( $args['date_field'], $allowed_date_fields, true ) ? $args['date_field'] : 'workshop_date';
+			$where_parts[]  = "{$date_col} = %s";
+			$where_values[] = sanitize_text_field( $args['date_filter'] );
 		}
 
 		$where_clause = implode( ' AND ', $where_parts );
@@ -289,5 +298,23 @@ class AdvDash_Dashboard_Manager {
 			'total'       => $total,
 			'total_pages' => (int) ceil( $total / $per_page ),
 		);
+	}
+
+	public function get_distinct_dates_with_counts( $dashboard_id, $tab, $date_field = 'workshop_date' ) {
+		global $wpdb;
+
+		$allowed_date_fields = array( 'workshop_date', 'date_of_lead_request' );
+		$col = in_array( $date_field, $allowed_date_fields, true ) ? $date_field : 'workshop_date';
+
+		$results = $wpdb->get_results( $wpdb->prepare(
+			"SELECT {$col} AS date_value, COUNT(*) AS count FROM {$this->table_contacts}
+			WHERE dashboard_id = %d AND tab = %s AND {$col} IS NOT NULL AND {$col} > '0000-00-00'
+			GROUP BY {$col}
+			ORDER BY {$col} DESC",
+			absint( $dashboard_id ),
+			sanitize_text_field( $tab )
+		) );
+
+		return $results ? $results : array();
 	}
 }

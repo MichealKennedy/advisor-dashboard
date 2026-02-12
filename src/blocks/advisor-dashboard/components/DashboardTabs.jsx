@@ -29,6 +29,7 @@ export default function DashboardTabs( { tabs, activeTab, onTabChange } ) {
 						tab={ currentTab.key }
 						columns={ currentTab.columns }
 						defaultSort={ currentTab.defaultSort }
+						dateFilterField={ currentTab.dateFilterField }
 					/>
 				) }
 			</div>

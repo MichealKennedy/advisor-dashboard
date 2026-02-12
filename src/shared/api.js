@@ -42,6 +42,9 @@ export const deleteWebhook = ( dashboardId ) =>
 export const getMyDashboard = () =>
 	apiFetch( { path: '/advisor-dashboard/v1/my-dashboard' } );
 
+export const getFilterDates = ( tab, dateField ) =>
+	apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/workshop-dates?tab=${ tab }&date_field=${ dateField }` } );
+
 export const getContacts = ( params ) => {
 	const query = new URLSearchParams();
 	Object.entries( params ).forEach( ( [ key, value ] ) => {

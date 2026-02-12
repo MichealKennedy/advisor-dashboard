@@ -4,10 +4,10 @@ import {
 	getCoreRowModel,
 	flexRender,
 } from '@tanstack/react-table';
-import { getContacts } from '../../../shared/api';
+import { getContacts, getFilterDates } from '../../../shared/api';
 import { formatDate } from '../../../shared/utils';
 
-export default function ContactTable( { tab, columns, defaultSort } ) {
+export default function ContactTable( { tab, columns, defaultSort, dateFilterField } ) {
 	// Server data state.
 	const [ data, setData ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
@@ -27,6 +27,26 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 	const [ debouncedSearch, setDebouncedSearch ] = useState( '' );
 	const [ isExporting, setIsExporting ] = useState( false );
 
+	// Date filter state.
+	const [ dateFilter, setDateFilter ] = useState( '' );
+	const [ dateOptions, setDateOptions ] = useState( [] );
+
+	// Compute the total count across all dates for the "All dates" label.
+	const allDatesTotal = useMemo(
+		() => dateOptions.reduce( ( sum, d ) => sum + parseInt( d.count, 10 ), 0 ),
+		[ dateOptions ]
+	);
+
+	// Fetch distinct dates for the filter dropdown.
+	useEffect( () => {
+		if ( ! dateFilterField ) {
+			return;
+		}
+		getFilterDates( tab, dateFilterField )
+			.then( setDateOptions )
+			.catch( () => setDateOptions( [] ) );
+	}, [ tab, dateFilterField ] );
+
 	// Debounce search input.
 	useEffect( () => {
 		const timer = setTimeout( () => {
@@ -44,14 +64,19 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 		try {
 			const sortCol = sorting[ 0 ]?.id || defaultSort.key;
 			const sortDir = sorting[ 0 ]?.desc ? 'desc' : 'asc';
-			const result = await getContacts( {
+			const params = {
 				tab,
 				page: pagination.pageIndex + 1,
 				per_page: pagination.pageSize,
 				orderby: sortCol,
 				order: sortDir,
 				search: debouncedSearch,
-			} );
+			};
+			if ( dateFilter && dateFilterField ) {
+				params.date_filter = dateFilter;
+				params.date_field = dateFilterField;
+			}
+			const result = await getContacts( params );
 			setData( result.data );
 			setTotal( result.total );
 			setTotalPages( result.totalPages );
@@ -59,7 +84,7 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 			setError( err.message || 'Failed to load contacts.' );
 		}
 		setIsLoading( false );
-	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, defaultSort.key ] );
+	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dateFilter, dateFilterField, defaultSort.key ] );
 
 	useEffect( () => {
 		fetchData();
@@ -105,14 +130,19 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 		try {
 			const sortCol = sorting[ 0 ]?.id || defaultSort.key;
 			const sortDir = sorting[ 0 ]?.desc ? 'desc' : 'asc';
-			const result = await getContacts( {
+			const exportParams = {
 				tab,
 				page: 1,
 				per_page: 5000,
 				orderby: sortCol,
 				order: sortDir,
 				search: debouncedSearch,
-			} );
+			};
+			if ( dateFilter && dateFilterField ) {
+				exportParams.date_filter = dateFilter;
+				exportParams.date_field = dateFilterField;
+			}
+			const result = await getContacts( exportParams );
 
 			const headers = columns.map( ( c ) => c.label );
 			const rows = result.data.map( ( row ) =>
@@ -150,6 +180,11 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 		setIsExporting( false );
 	};
 
+	// Label for the "All dates" option.
+	const allDatesLabel = dateFilterField === 'date_of_lead_request'
+		? 'All lead request dates'
+		: 'All workshop dates';
+
 	return (
 		<div className="advdash__table-container">
 			<div className="advdash__table-controls">
@@ -160,6 +195,25 @@ export default function ContactTable( { tab, columns, defaultSort } ) {
 					value={ search }
 					onChange={ ( e ) => setSearch( e.target.value ) }
 				/>
+				{ dateFilterField && dateOptions.length > 0 && (
+					<select
+						className="advdash__date-filter"
+						value={ dateFilter }
+						onChange={ ( e ) => {
+							setDateFilter( e.target.value );
+							setPagination( ( prev ) => ( { ...prev, pageIndex: 0 } ) );
+						} }
+					>
+						<option value="">
+							{ allDatesLabel } ({ allDatesTotal })
+						</option>
+						{ dateOptions.map( ( d ) => (
+							<option key={ d.date_value } value={ d.date_value }>
+								{ formatDate( d.date_value ) } ({ d.count })
+							</option>
+						) ) }
+					</select>
+				) }
 				<button
 					className="advdash__export-btn"
 					onClick={ handleExport }

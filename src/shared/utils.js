@@ -17,6 +17,7 @@ export const TAB_CONFIG = [
 	{
 		key: 'current_registrations',
 		label: 'Current Registrations',
+		dateFilterField: 'workshop_date',
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -40,6 +41,7 @@ export const TAB_CONFIG = [
 	{
 		key: 'attended_report',
 		label: 'Attended Workshop & Requested Report',
+		dateFilterField: 'workshop_date',
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -63,6 +65,7 @@ export const TAB_CONFIG = [
 	{
 		key: 'attended_other',
 		label: "Attended Other Members' Workshop",
+		dateFilterField: 'workshop_date',
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -86,6 +89,7 @@ export const TAB_CONFIG = [
 	{
 		key: 'fed_request',
 		label: 'Fed Employee Requested Advisor Report',
+		dateFilterField: 'date_of_lead_request',
 		columns: [
 			{ key: 'date_of_lead_request', label: 'Lead Request Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },

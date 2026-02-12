@@ -113,7 +113,38 @@ class AdvDash_Rest_API {
 				'per_page' => array( 'default' => 50, 'type' => 'integer' ),
 				'orderby'  => array( 'default' => 'created_at', 'type' => 'string' ),
 				'order'    => array( 'default' => 'desc', 'type' => 'string' ),
-				'search'   => array( 'default' => '', 'type' => 'string' ),
+				'search'        => array( 'default' => '', 'type' => 'string' ),
+				'date_filter'   => array( 'default' => '', 'type' => 'string' ),
+				'date_field'    => array(
+					'default'           => 'workshop_date',
+					'type'              => 'string',
+					'validate_callback' => function ( $param ) {
+						return in_array( $param, array( 'workshop_date', 'date_of_lead_request' ), true );
+					},
+				),
+			),
+		) );
+
+		// Workshop dates for filter dropdown.
+		register_rest_route( $this->namespace, '/my-dashboard/workshop-dates', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_my_workshop_dates' ),
+			'permission_callback' => array( $this, 'check_logged_in' ),
+			'args'                => array(
+				'tab' => array(
+					'required'          => true,
+					'type'              => 'string',
+					'validate_callback' => function ( $param ) {
+						return in_array( $param, array( 'current_registrations', 'attended_report', 'attended_other', 'fed_request' ), true );
+					},
+				),
+				'date_field' => array(
+					'default'           => 'workshop_date',
+					'type'              => 'string',
+					'validate_callback' => function ( $param ) {
+						return in_array( $param, array( 'workshop_date', 'date_of_lead_request' ), true );
+					},
+				),
 			),
 		) );
 	}
@@ -321,12 +352,14 @@ class AdvDash_Rest_API {
 		}
 
 		$result = $this->manager->get_contacts( $dashboard->id, array(
-			'tab'      => $request->get_param( 'tab' ),
-			'page'     => $request->get_param( 'page' ),
-			'per_page' => $request->get_param( 'per_page' ),
-			'orderby'  => $request->get_param( 'orderby' ),
-			'order'    => $request->get_param( 'order' ),
-			'search'   => $request->get_param( 'search' ),
+			'tab'          => $request->get_param( 'tab' ),
+			'page'         => $request->get_param( 'page' ),
+			'per_page'     => $request->get_param( 'per_page' ),
+			'orderby'      => $request->get_param( 'orderby' ),
+			'order'        => $request->get_param( 'order' ),
+			'search'       => $request->get_param( 'search' ),
+			'date_filter'  => $request->get_param( 'date_filter' ),
+			'date_field'   => $request->get_param( 'date_field' ),
 		) );
 
 		$response = new WP_REST_Response( $result['data'], 200 );
@@ -334,5 +367,19 @@ class AdvDash_Rest_API {
 		$response->header( 'X-WP-TotalPages', $result['total_pages'] );
 
 		return $response;
+	}
+
+	public function get_my_workshop_dates( WP_REST_Request $request ) {
+		$user_id   = get_current_user_id();
+		$dashboard = $this->manager->get_dashboard_by_user( $user_id );
+
+		if ( ! $dashboard ) {
+			return new WP_Error( 'no_dashboard', 'No dashboard is configured for your account.', array( 'status' => 403 ) );
+		}
+
+		$date_field = $request->get_param( 'date_field' ) ?: 'workshop_date';
+		$dates = $this->manager->get_distinct_dates_with_counts( $dashboard->id, $request->get_param( 'tab' ), $date_field );
+
+		return new WP_REST_Response( $dates, 200 );
 	}
 }

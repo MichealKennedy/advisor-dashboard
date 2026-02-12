@@ -115,6 +115,22 @@
 	box-shadow: 0 0 0 1px var(--advdash-primary);
 }
 
+.advdash__date-filter {
+	padding: 8px 12px;
+	border: 1px solid var(--advdash-border);
+	border-radius: 4px;
+	font-size: 14px;
+	background: var(--advdash-bg);
+	color: var(--advdash-text);
+	cursor: pointer;
+}
+
+.advdash__date-filter:focus {
+	outline: none;
+	border-color: var(--advdash-primary);
+	box-shadow: 0 0 0 1px var(--advdash-primary);
+}
+
 .advdash__export-btn {
 	padding: 8px 16px;
 	background: var(--advdash-bg);
