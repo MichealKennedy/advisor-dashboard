@@ -124,3 +124,49 @@
 	padding-top: 16px;
 	border-top: 1px solid #e0e0e0;
 }
+
+.advdash-admin__title-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.advdash-admin__test-section {
+	max-width: 600px;
+}
+
+.advdash-admin__test-header {
+	margin-bottom: 20px;
+}
+
+.advdash-admin__test-header h2 {
+	margin-top: 8px;
+}
+
+.advdash-admin__test-result {
+	margin-top: 16px;
+}
+
+.advdash-admin__webhook-status {
+	padding: 8px 12px;
+	border-radius: 4px;
+	margin-bottom: 16px;
+	font-size: 13px;
+}
+
+.advdash-admin__webhook-status--active {
+	background: #edfaef;
+	border: 1px solid #46b450;
+	color: #1e4620;
+}
+
+.advdash-admin__webhook-status--inactive {
+	background: #fef8ee;
+	border: 1px solid #f0b849;
+	color: #6e4e00;
+}
+
+.advdash-admin__webhook-status--missing {
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+	color: #8a1116;
+}

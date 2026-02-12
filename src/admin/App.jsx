@@ -2,6 +2,7 @@ import { useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';
 import DashboardList from './components/DashboardList';
 import DashboardEditor from './components/DashboardEditor';
+import TestContactSender from './components/TestContactSender';
 
 function HelpDialog( { onClose } ) {
 	return (
@@ -98,9 +99,14 @@ export default function App() {
 		<div className="advdash-admin">
 			<div className="advdash-admin__title-bar">
 				<h1>Advisor Dashboards</h1>
-				<Button variant="secondary" onClick={ () => setShowHelp( true ) }>
-					Help
-				</Button>
+				<div className="advdash-admin__title-actions">
+					<Button variant="secondary" onClick={ () => setView( 'test' ) }>
+						Test Dashboard
+					</Button>
+					<Button variant="secondary" onClick={ () => setShowHelp( true ) }>
+						Help
+					</Button>
+				</div>
 			</div>
 			{ showHelp && <HelpDialog onClose={ () => setShowHelp( false ) } /> }
 			{ view === 'list' && (
@@ -108,6 +114,9 @@ export default function App() {
 			) }
 			{ view === 'editor' && (
 				<DashboardEditor id={ selectedId } onBack={ handleBack } />
+			) }
+			{ view === 'test' && (
+				<TestContactSender onBack={ handleBack } />
 			) }
 		</div>
 	);
