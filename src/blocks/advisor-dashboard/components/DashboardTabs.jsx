@@ -1,6 +1,6 @@
 import ContactTable from './ContactTable';
 
-export default function DashboardTabs( { tabs, activeTab, onTabChange } ) {
+export default function DashboardTabs( { tabs, activeTab, onTabChange, dashboardId, isAdmin } ) {
 	const currentTab = tabs.find( ( t ) => t.key === activeTab );
 
 	return (
@@ -25,11 +25,13 @@ export default function DashboardTabs( { tabs, activeTab, onTabChange } ) {
 			<div className="advdash__tab-panel" role="tabpanel">
 				{ currentTab && (
 					<ContactTable
-						key={ currentTab.key }
+						key={ `${ currentTab.key }-${ dashboardId || 'self' }` }
 						tab={ currentTab.key }
 						columns={ currentTab.columns }
 						defaultSort={ currentTab.defaultSort }
 						dateFilterField={ currentTab.dateFilterField }
+						dashboardId={ dashboardId }
+						isAdmin={ isAdmin }
 					/>
 				) }
 			</div>

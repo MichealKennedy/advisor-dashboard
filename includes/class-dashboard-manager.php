@@ -317,4 +317,19 @@ class AdvDash_Dashboard_Manager {
 
 		return $results ? $results : array();
 	}
+
+	public function delete_contact( $contact_id, $dashboard_id ) {
+		global $wpdb;
+
+		$result = $wpdb->delete(
+			$this->table_contacts,
+			array(
+				'id'           => absint( $contact_id ),
+				'dashboard_id' => absint( $dashboard_id ),
+			),
+			array( '%d', '%d' )
+		);
+
+		return false !== $result && $wpdb->rows_affected > 0;
+	}
 }

@@ -39,11 +39,18 @@ export const deleteWebhook = ( dashboardId ) =>
  * Frontend API
  * ---------------------------------------------------------------------- */
 
-export const getMyDashboard = () =>
-	apiFetch( { path: '/advisor-dashboard/v1/my-dashboard' } );
+export const getMyDashboard = ( dashboardId ) => {
+	const params = dashboardId ? `?dashboard_id=${ dashboardId }` : '';
+	return apiFetch( { path: `/advisor-dashboard/v1/my-dashboard${ params }` } );
+};
 
-export const getFilterDates = ( tab, dateField ) =>
-	apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/workshop-dates?tab=${ tab }&date_field=${ dateField }` } );
+export const getFilterDates = ( tab, dateField, dashboardId ) => {
+	let path = `/advisor-dashboard/v1/my-dashboard/workshop-dates?tab=${ tab }&date_field=${ dateField }`;
+	if ( dashboardId ) {
+		path += `&dashboard_id=${ dashboardId }`;
+	}
+	return apiFetch( { path } );
+};
 
 export const getContacts = ( params ) => {
 	const query = new URLSearchParams();
@@ -64,4 +71,12 @@ export const getContacts = ( params ) => {
 			totalPages: parseInt( response.headers.get( 'X-WP-TotalPages' ), 10 ) || 0,
 		};
 	} );
+};
+
+export const deleteContact = ( contactId, dashboardId ) => {
+	let path = `/advisor-dashboard/v1/my-dashboard/contacts/${ contactId }`;
+	if ( dashboardId ) {
+		path += `?dashboard_id=${ dashboardId }`;
+	}
+	return apiFetch( { path, method: 'DELETE' } );
 };

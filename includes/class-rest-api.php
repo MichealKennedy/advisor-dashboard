@@ -95,6 +95,9 @@ class AdvDash_Rest_API {
 			'methods'             => 'GET',
 			'callback'            => array( $this, 'get_my_dashboard' ),
 			'permission_callback' => array( $this, 'check_logged_in' ),
+			'args'                => array(
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+			),
 		) );
 
 		register_rest_route( $this->namespace, '/my-dashboard/contacts', array(
@@ -122,6 +125,7 @@ class AdvDash_Rest_API {
 						return in_array( $param, array( 'workshop_date', 'date_of_lead_request' ), true );
 					},
 				),
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
 			),
 		) );
 
@@ -145,6 +149,21 @@ class AdvDash_Rest_API {
 						return in_array( $param, array( 'workshop_date', 'date_of_lead_request' ), true );
 					},
 				),
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+			),
+		) );
+
+		// Delete a contact (admin only).
+		register_rest_route( $this->namespace, '/my-dashboard/contacts/(?P<contact_id>\d+)', array(
+			'methods'             => 'DELETE',
+			'callback'            => array( $this, 'delete_my_contact' ),
+			'permission_callback' => array( $this, 'check_admin' ),
+			'args'                => array(
+				'contact_id'   => array(
+					'required' => true,
+					'type'     => 'integer',
+				),
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
 			),
 		) );
 	}
@@ -322,12 +341,31 @@ class AdvDash_Rest_API {
 	 * Frontend: My Dashboard
 	 * ---------------------------------------------------------------------- */
 
-	public function get_my_dashboard( WP_REST_Request $request ) {
+	private function resolve_dashboard( WP_REST_Request $request ) {
+		$dashboard_id = $request->get_param( 'dashboard_id' );
+
+		if ( $dashboard_id && current_user_can( 'manage_options' ) ) {
+			$dashboard = $this->manager->get_dashboard( (int) $dashboard_id );
+			if ( ! $dashboard ) {
+				return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
+			}
+			return $dashboard;
+		}
+
 		$user_id   = get_current_user_id();
 		$dashboard = $this->manager->get_dashboard_by_user( $user_id );
 
 		if ( ! $dashboard ) {
 			return new WP_Error( 'no_dashboard', 'No dashboard is configured for your account.', array( 'status' => 403 ) );
+		}
+
+		return $dashboard;
+	}
+
+	public function get_my_dashboard( WP_REST_Request $request ) {
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
 		}
 
 		return new WP_REST_Response( array(
@@ -344,11 +382,9 @@ class AdvDash_Rest_API {
 	}
 
 	public function get_my_contacts( WP_REST_Request $request ) {
-		$user_id   = get_current_user_id();
-		$dashboard = $this->manager->get_dashboard_by_user( $user_id );
-
-		if ( ! $dashboard ) {
-			return new WP_Error( 'no_dashboard', 'No dashboard is configured for your account.', array( 'status' => 403 ) );
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
 		}
 
 		$result = $this->manager->get_contacts( $dashboard->id, array(
@@ -370,16 +406,30 @@ class AdvDash_Rest_API {
 	}
 
 	public function get_my_workshop_dates( WP_REST_Request $request ) {
-		$user_id   = get_current_user_id();
-		$dashboard = $this->manager->get_dashboard_by_user( $user_id );
-
-		if ( ! $dashboard ) {
-			return new WP_Error( 'no_dashboard', 'No dashboard is configured for your account.', array( 'status' => 403 ) );
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
 		}
 
 		$date_field = $request->get_param( 'date_field' ) ?: 'workshop_date';
 		$dates = $this->manager->get_distinct_dates_with_counts( $dashboard->id, $request->get_param( 'tab' ), $date_field );
 
 		return new WP_REST_Response( $dates, 200 );
+	}
+
+	public function delete_my_contact( WP_REST_Request $request ) {
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
+		}
+
+		$contact_id = (int) $request->get_param( 'contact_id' );
+		$result     = $this->manager->delete_contact( $contact_id, $dashboard->id );
+
+		if ( ! $result ) {
+			return new WP_Error( 'delete_failed', 'Contact not found or could not be deleted.', array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( array( 'success' => true, 'deleted_id' => $contact_id ), 200 );
 	}
 }

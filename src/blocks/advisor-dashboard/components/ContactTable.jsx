@@ -4,10 +4,10 @@ import {
 	getCoreRowModel,
 	flexRender,
 } from '@tanstack/react-table';
-import { getContacts, getFilterDates } from '../../../shared/api';
+import { getContacts, getFilterDates, deleteContact } from '../../../shared/api';
 import { formatDate } from '../../../shared/utils';
 
-export default function ContactTable( { tab, columns, defaultSort, dateFilterField } ) {
+export default function ContactTable( { tab, columns, defaultSort, dateFilterField, dashboardId, isAdmin } ) {
 	// Server data state.
 	const [ data, setData ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
@@ -42,10 +42,10 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 		if ( ! dateFilterField ) {
 			return;
 		}
-		getFilterDates( tab, dateFilterField )
+		getFilterDates( tab, dateFilterField, dashboardId )
 			.then( setDateOptions )
 			.catch( () => setDateOptions( [] ) );
-	}, [ tab, dateFilterField ] );
+	}, [ tab, dateFilterField, dashboardId ] );
 
 	// Debounce search input.
 	useEffect( () => {
@@ -72,6 +72,9 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 				order: sortDir,
 				search: debouncedSearch,
 			};
+			if ( dashboardId ) {
+				params.dashboard_id = dashboardId;
+			}
 			if ( dateFilter && dateFilterField ) {
 				params.date_filter = dateFilter;
 				params.date_field = dateFilterField;
@@ -84,16 +87,29 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 			setError( err.message || 'Failed to load contacts.' );
 		}
 		setIsLoading( false );
-	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dateFilter, dateFilterField, defaultSort.key ] );
+	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dateFilter, dateFilterField, defaultSort.key, dashboardId ] );
 
 	useEffect( () => {
 		fetchData();
 	}, [ fetchData ] );
 
+	// Delete a contact (admin only).
+	const handleDelete = useCallback( async ( contactId ) => {
+		if ( ! window.confirm( 'Are you sure you want to delete this contact? This action cannot be undone.' ) ) {
+			return;
+		}
+		try {
+			await deleteContact( contactId, dashboardId );
+			fetchData();
+		} catch ( err ) {
+			setError( 'Failed to delete contact: ' + ( err.message || 'Unknown error' ) );
+		}
+	}, [ dashboardId, fetchData ] );
+
 	// Build TanStack column definitions.
 	const tableColumns = useMemo(
-		() =>
-			columns.map( ( col ) => ( {
+		() => {
+			const cols = columns.map( ( col ) => ( {
 				accessorKey: col.key,
 				header: col.label,
 				cell: ( info ) => {
@@ -104,8 +120,28 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 					return val || '';
 				},
 				enableSorting: true,
-			} ) ),
-		[ columns ]
+			} ) );
+
+			if ( isAdmin ) {
+				cols.push( {
+					id: 'actions',
+					header: '',
+					cell: ( info ) => (
+						<button
+							className="advdash__delete-btn"
+							onClick={ () => handleDelete( info.row.original.id ) }
+							title="Delete contact"
+						>
+							&times;
+						</button>
+					),
+					enableSorting: false,
+				} );
+			}
+
+			return cols;
+		},
+		[ columns, isAdmin, handleDelete ]
 	);
 
 	const table = useReactTable( {
@@ -138,6 +174,9 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 				order: sortDir,
 				search: debouncedSearch,
 			};
+			if ( dashboardId ) {
+				exportParams.dashboard_id = dashboardId;
+			}
 			if ( dateFilter && dateFilterField ) {
 				exportParams.date_filter = dateFilter;
 				exportParams.date_field = dateFilterField;
@@ -259,7 +298,7 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 												onClick={ header.column.getToggleSortingHandler() }
 												className="advdash__th"
 												style={ {
-													cursor: 'pointer',
+													cursor: header.column.getCanSort() ? 'pointer' : 'default',
 													userSelect: 'none',
 												} }
 											>
