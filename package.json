@@ -1,0 +1,19 @@
+{
+  "name": "advisor-dashboard",
+  "version": "1.0.0",
+  "description": "Advisor Dashboard WordPress Plugin",
+  "scripts": {
+    "build": "wp-scripts build",
+    "start": "wp-scripts start",
+    "lint:js": "wp-scripts lint-js",
+    "lint:css": "wp-scripts lint-style",
+    "package": "node package-plugin.js"
+  },
+  "devDependencies": {
+    "@wordpress/scripts": "^28.0.0"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.6",
+    "@tanstack/react-table": "^8.0.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "advisor-dashboard/dashboard",
+	"version": "1.0.0",
+	"title": "Advisor Dashboard",
+	"category": "widgets",
+	"icon": "businessman",
+	"description": "Displays the logged-in advisor's workshop contact dashboard with tabbed data views.",
+	"supports": {
+		"html": false,
+		"multiple": false
+	},
+	"attributes": {},
+	"textdomain": "advisor-dashboard",
+	"render": "file:./render.php",
+	"editorScript": "file:./index.js",
+	"viewScript": "file:./view.js",
+	"viewStyle": "file:./style-view.css"
+}

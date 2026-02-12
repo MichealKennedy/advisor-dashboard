@@ -1,0 +1,126 @@
+.advdash-admin {
+	max-width: 1200px;
+}
+
+.advdash-admin__title-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.advdash-admin__title-bar h1 {
+	margin: 0;
+}
+
+.advdash-admin__help h3 {
+	margin-top: 20px;
+	margin-bottom: 8px;
+}
+
+.advdash-admin__help h3:first-child {
+	margin-top: 0;
+}
+
+.advdash-admin__help ol,
+.advdash-admin__help ul {
+	margin-left: 20px;
+}
+
+.advdash-admin__help li {
+	margin-bottom: 6px;
+}
+
+.advdash-admin__help code {
+	background: #f0f0f1;
+	padding: 2px 5px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+
+.advdash-admin__loading {
+	padding: 40px;
+	text-align: center;
+}
+
+.advdash-admin__list-header {
+	margin-bottom: 16px;
+}
+
+.advdash-admin__editor-header {
+	margin-bottom: 20px;
+}
+
+.advdash-admin__editor-header h2 {
+	margin-top: 8px;
+}
+
+.advdash-admin__form {
+	max-width: 600px;
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.advdash-admin__form-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #e0e0e0;
+}
+
+.advdash-admin__webhook-section {
+	margin-top: 32px;
+	max-width: 600px;
+}
+
+.advdash-admin__webhook {
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.advdash-admin__webhook-url-row {
+	margin-bottom: 16px;
+}
+
+.advdash-admin__webhook-url-row label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.advdash-admin__webhook-url-field {
+	display: flex;
+	gap: 8px;
+}
+
+.advdash-admin__webhook-url-input {
+	flex: 1;
+	padding: 6px 10px;
+	font-family: monospace;
+	font-size: 12px;
+}
+
+.advdash-admin__webhook-help {
+	color: #646970;
+	font-size: 13px;
+	margin-top: 12px;
+}
+
+.advdash-admin__webhook-help code {
+	background: #f0f0f1;
+	padding: 2px 5px;
+	border-radius: 2px;
+}
+
+.advdash-admin__webhook-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #e0e0e0;
+}
