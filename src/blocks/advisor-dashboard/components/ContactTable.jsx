@@ -4,7 +4,7 @@ import {
 	getCoreRowModel,
 	flexRender,
 } from '@tanstack/react-table';
-import { getContacts, getFilterDates, deleteContact } from '../../../shared/api';
+import { getContacts, getFilterDates, getContactSummary, deleteContact } from '../../../shared/api';
 import { formatDate } from '../../../shared/utils';
 
 export default function ContactTable( { tab, columns, defaultSort, dateFilterField, dashboardId, isAdmin } ) {
@@ -92,6 +92,36 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 	useEffect( () => {
 		fetchData();
 	}, [ fetchData ] );
+
+	// Summary stats (current_registrations tab only).
+	const [ summary, setSummary ] = useState( null );
+	const isCurrentReg = tab === 'current_registrations';
+
+	useEffect( () => {
+		if ( ! isCurrentReg ) {
+			setSummary( null );
+			return;
+		}
+		const params = { tab, search: debouncedSearch };
+		if ( dashboardId ) {
+			params.dashboard_id = dashboardId;
+		}
+		if ( dateFilter && dateFilterField ) {
+			params.date_filter = dateFilter;
+			params.date_field = dateFilterField;
+		}
+		getContactSummary( params )
+			.then( setSummary )
+			.catch( () => setSummary( null ) );
+	}, [ isCurrentReg, tab, debouncedSearch, dateFilter, dateFilterField, dashboardId ] );
+
+	// Format a breakdown array into "Option (count), ..." display.
+	const formatBreakdown = ( items ) => {
+		if ( ! items || items.length === 0 ) {
+			return 'None';
+		}
+		return items.map( ( item ) => `${ item.option_name } (${ item.count })` ).join( ', ' );
+	};
 
 	// Delete a contact (admin only).
 	const handleDelete = useCallback( async ( contactId ) => {
@@ -261,6 +291,25 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 					{ isExporting ? 'Exporting...' : 'Download CSV' }
 				</button>
 			</div>
+
+			{ isCurrentReg && summary && (
+				<div className="advdash__summary-bar">
+					<div className="advdash__summary-line">
+						<span className="advdash__summary-label">Registrants: { summary.total_registrants }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Food: { formatBreakdown( summary.food_fed_breakdown ) }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Side: { formatBreakdown( summary.side_fed_breakdown ) }</span>
+					</div>
+					<div className="advdash__summary-line">
+						<span className="advdash__summary-label">Guests: { summary.total_guests }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Food: { formatBreakdown( summary.food_spouse_breakdown ) }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Side: { formatBreakdown( summary.side_spouse_breakdown ) }</span>
+					</div>
+				</div>
+			) }
 
 			{ error && (
 				<div className="advdash__error">

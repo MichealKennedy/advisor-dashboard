@@ -153,6 +153,32 @@ class AdvDash_Rest_API {
 			),
 		) );
 
+		// Contact summary (aggregated stats).
+		register_rest_route( $this->namespace, '/my-dashboard/contact-summary', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_my_contact_summary' ),
+			'permission_callback' => array( $this, 'check_logged_in' ),
+			'args'                => array(
+				'tab' => array(
+					'required'          => true,
+					'type'              => 'string',
+					'validate_callback' => function ( $param ) {
+						return in_array( $param, array( 'current_registrations', 'attended_report', 'attended_other', 'fed_request' ), true );
+					},
+				),
+				'search'      => array( 'default' => '', 'type' => 'string' ),
+				'date_filter' => array( 'default' => '', 'type' => 'string' ),
+				'date_field'  => array(
+					'default'           => 'workshop_date',
+					'type'              => 'string',
+					'validate_callback' => function ( $param ) {
+						return in_array( $param, array( 'workshop_date', 'date_of_lead_request' ), true );
+					},
+				),
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+			),
+		) );
+
 		// Delete a contact (admin only).
 		register_rest_route( $this->namespace, '/my-dashboard/contacts/(?P<contact_id>\d+)', array(
 			'methods'             => 'DELETE',
@@ -415,6 +441,22 @@ class AdvDash_Rest_API {
 		$dates = $this->manager->get_distinct_dates_with_counts( $dashboard->id, $request->get_param( 'tab' ), $date_field );
 
 		return new WP_REST_Response( $dates, 200 );
+	}
+
+	public function get_my_contact_summary( WP_REST_Request $request ) {
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
+		}
+
+		$summary = $this->manager->get_contact_summary( $dashboard->id, array(
+			'tab'         => $request->get_param( 'tab' ),
+			'search'      => $request->get_param( 'search' ),
+			'date_filter' => $request->get_param( 'date_filter' ),
+			'date_field'  => $request->get_param( 'date_field' ),
+		) );
+
+		return new WP_REST_Response( $summary, 200 );
 	}
 
 	public function delete_my_contact( WP_REST_Request $request ) {

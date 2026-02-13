@@ -184,6 +184,35 @@
 	cursor: not-allowed;
 }
 
+/* Summary bar */
+.advdash__summary-bar {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 14px;
+	margin-bottom: 16px;
+	background: var(--advdash-bg-stripe);
+	border: 1px solid var(--advdash-border);
+	border-radius: 4px;
+	font-size: 13px;
+	color: var(--advdash-text);
+}
+
+.advdash__summary-line {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.advdash__summary-label {
+	font-weight: 600;
+}
+
+.advdash__summary-sep {
+	color: var(--advdash-text-muted);
+}
+
 /* Error */
 .advdash__error {
 	display: flex;

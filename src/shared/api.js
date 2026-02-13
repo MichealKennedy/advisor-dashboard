@@ -73,6 +73,16 @@ export const getContacts = ( params ) => {
 	} );
 };
 
+export const getContactSummary = ( params ) => {
+	const query = new URLSearchParams();
+	Object.entries( params ).forEach( ( [ key, value ] ) => {
+		if ( value !== undefined && value !== null && value !== '' ) {
+			query.set( key, value );
+		}
+	} );
+	return apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/contact-summary?${ query.toString() }` } );
+};
+
 export const deleteContact = ( contactId, dashboardId ) => {
 	let path = `/advisor-dashboard/v1/my-dashboard/contacts/${ contactId }`;
 	if ( dashboardId ) {

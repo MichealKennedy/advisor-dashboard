@@ -318,6 +318,90 @@ class AdvDash_Dashboard_Manager {
 		return $results ? $results : array();
 	}
 
+	public function get_contact_summary( $dashboard_id, $args = array() ) {
+		global $wpdb;
+
+		$defaults = array(
+			'tab'         => 'current_registrations',
+			'search'      => '',
+			'date_filter' => '',
+			'date_field'  => 'workshop_date',
+		);
+
+		$args = wp_parse_args( $args, $defaults );
+
+		// Build WHERE clause (same logic as get_contacts).
+		$where_parts  = array( 'dashboard_id = %d', 'tab = %s' );
+		$where_values = array( absint( $dashboard_id ), sanitize_text_field( $args['tab'] ) );
+
+		if ( ! empty( $args['search'] ) ) {
+			$like           = '%' . $wpdb->esc_like( sanitize_text_field( $args['search'] ) ) . '%';
+			$where_parts[]  = '( first_name LIKE %s OR last_name LIKE %s )';
+			$where_values[] = $like;
+			$where_values[] = $like;
+		}
+
+		if ( ! empty( $args['date_filter'] ) ) {
+			$allowed_date_fields = array( 'workshop_date', 'date_of_lead_request' );
+			$date_col = in_array( $args['date_field'], $allowed_date_fields, true ) ? $args['date_field'] : 'workshop_date';
+			$where_parts[]  = "{$date_col} = %s";
+			$where_values[] = sanitize_text_field( $args['date_filter'] );
+		}
+
+		$where_clause = implode( ' AND ', $where_parts );
+
+		// Total registrants.
+		$total_registrants = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$this->table_contacts} WHERE {$where_clause}",
+			...$where_values
+		) );
+
+		// Total guests (rows with non-empty spouse_name).
+		$total_guests = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$this->table_contacts} WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != ''",
+			...$where_values
+		) );
+
+		// Food/side breakdowns for registrants (fed).
+		$food_fed = $wpdb->get_results( $wpdb->prepare(
+			"SELECT food_option_fed AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
+			WHERE {$where_clause} AND food_option_fed IS NOT NULL AND food_option_fed != ''
+			GROUP BY food_option_fed ORDER BY count DESC",
+			...$where_values
+		) );
+
+		$side_fed = $wpdb->get_results( $wpdb->prepare(
+			"SELECT side_option_fed AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
+			WHERE {$where_clause} AND side_option_fed IS NOT NULL AND side_option_fed != ''
+			GROUP BY side_option_fed ORDER BY count DESC",
+			...$where_values
+		) );
+
+		// Food/side breakdowns for guests (spouse) — only rows with a spouse.
+		$food_spouse = $wpdb->get_results( $wpdb->prepare(
+			"SELECT food_option_spouse AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
+			WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != '' AND food_option_spouse IS NOT NULL AND food_option_spouse != ''
+			GROUP BY food_option_spouse ORDER BY count DESC",
+			...$where_values
+		) );
+
+		$side_spouse = $wpdb->get_results( $wpdb->prepare(
+			"SELECT side_option_spouse AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
+			WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != '' AND side_option_spouse IS NOT NULL AND side_option_spouse != ''
+			GROUP BY side_option_spouse ORDER BY count DESC",
+			...$where_values
+		) );
+
+		return array(
+			'total_registrants'     => $total_registrants,
+			'total_guests'          => $total_guests,
+			'food_fed_breakdown'    => $food_fed ? $food_fed : array(),
+			'side_fed_breakdown'    => $side_fed ? $side_fed : array(),
+			'food_spouse_breakdown' => $food_spouse ? $food_spouse : array(),
+			'side_spouse_breakdown' => $side_spouse ? $side_spouse : array(),
+		);
+	}
+
 	public function delete_contact( $contact_id, $dashboard_id ) {
 		global $wpdb;
 
