@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { SelectControl, Button, Notice, RangeControl, Spinner } from '@wordpress/components';
-import { getDashboards, getWebhook } from '../../shared/api';
+import { getDashboards, getSharedWebhook } from '../../shared/api';
 import { TAB_CONFIG } from '../../shared/utils';
 import generateTestContact from '../utils/generateTestContact';
 
@@ -10,45 +10,29 @@ export default function TestContactSender( { onBack } ) {
 	const [ selectedTab, setSelectedTab ] = useState( TAB_CONFIG[ 0 ].key );
 	const [ count, setCount ] = useState( 1 );
 	const [ webhook, setWebhook ] = useState( null );
-	const [ webhookLoading, setWebhookLoading ] = useState( false );
 	const [ isSending, setIsSending ] = useState( false );
 	const [ results, setResults ] = useState( null );
 	const [ error, setError ] = useState( null );
 	const [ isLoading, setIsLoading ] = useState( true );
 
 	useEffect( () => {
-		getDashboards()
-			.then( ( data ) => {
-				setDashboards( data );
+		Promise.all( [ getDashboards(), getSharedWebhook() ] )
+			.then( ( [ dashboardData, webhookData ] ) => {
+				setDashboards( dashboardData );
+				setWebhook( webhookData.exists ? webhookData : null );
 				setIsLoading( false );
 			} )
 			.catch( ( err ) => {
-				setError( err.message || 'Failed to load dashboards.' );
+				setError( err.message || 'Failed to load data.' );
 				setIsLoading( false );
 			} );
 	}, [] );
 
-	useEffect( () => {
-		if ( ! selectedDashboardId ) {
-			setWebhook( null );
-			return;
-		}
-		setWebhookLoading( true );
-		setWebhook( null );
-		setResults( null );
-		getWebhook( selectedDashboardId )
-			.then( ( data ) => {
-				setWebhook( data.exists ? data : null );
-				setWebhookLoading( false );
-			} )
-			.catch( () => {
-				setWebhook( null );
-				setWebhookLoading( false );
-			} );
-	}, [ selectedDashboardId ] );
+	const selectedDashboard = dashboards.find( ( d ) => String( d.id ) === selectedDashboardId );
+	const advisorCode = selectedDashboard?.member_workshop_code || '';
 
 	const handleSend = async () => {
-		if ( ! webhook?.webhook_url || ! webhook?.is_active ) {
+		if ( ! webhook?.webhook_url || ! advisorCode ) {
 			return;
 		}
 
@@ -63,6 +47,7 @@ export default function TestContactSender( { onBack } ) {
 		for ( let i = 0; i < count; i++ ) {
 			const payload = generateTestContact( selectedTab );
 			payload.tab = selectedTab;
+			payload.advisor_code = advisorCode;
 
 			try {
 				const response = await fetch( webhook.webhook_url, {
@@ -87,12 +72,12 @@ export default function TestContactSender( { onBack } ) {
 		setIsSending( false );
 	};
 
-	const canSend = webhook?.is_active && selectedDashboardId && ! isSending;
+	const canSend = webhook?.webhook_url && advisorCode && selectedDashboardId && ! isSending;
 
 	const dashboardOptions = [
-		{ label: '— Select a dashboard —', value: '' },
+		{ label: '-- Select a dashboard --', value: '' },
 		...dashboards.map( ( d ) => ( {
-			label: d.name,
+			label: `${ d.name }${ d.member_workshop_code ? ` (${ d.member_workshop_code })` : '' }`,
 			value: String( d.id ),
 		} ) ),
 	];
@@ -111,29 +96,24 @@ export default function TestContactSender( { onBack } ) {
 	}
 
 	let webhookStatus = null;
-	if ( selectedDashboardId && ! webhookLoading ) {
-		if ( ! webhook ) {
-			webhookStatus = (
-				<div className="advdash-admin__webhook-status advdash-admin__webhook-status--missing">
-					No webhook configured for this dashboard. Create one in the dashboard editor first.
-				</div>
-			);
-		} else if ( ! webhook.is_active ) {
-			webhookStatus = (
-				<div className="advdash-admin__webhook-status advdash-admin__webhook-status--inactive">
-					Webhook is inactive. Activate it in the dashboard editor to send test contacts.
-				</div>
-			);
-		} else {
-			webhookStatus = (
-				<div className="advdash-admin__webhook-status advdash-admin__webhook-status--active">
-					Webhook is active and ready to receive test data.
-				</div>
-			);
-		}
-	}
-	if ( selectedDashboardId && webhookLoading ) {
-		webhookStatus = <Spinner />;
+	if ( ! webhook ) {
+		webhookStatus = (
+			<div className="advdash-admin__webhook-status advdash-admin__webhook-status--missing">
+				No shared webhook configured. Generate one from the main dashboard page first.
+			</div>
+		);
+	} else if ( selectedDashboardId && ! advisorCode ) {
+		webhookStatus = (
+			<div className="advdash-admin__webhook-status advdash-admin__webhook-status--inactive">
+				This dashboard has no Member Workshop Code set. Set one in the dashboard editor first.
+			</div>
+		);
+	} else if ( selectedDashboardId && advisorCode ) {
+		webhookStatus = (
+			<div className="advdash-admin__webhook-status advdash-admin__webhook-status--active">
+				Ready to send test data as advisor code "{ advisorCode }".
+			</div>
+		);
 	}
 
 	return (
@@ -144,7 +124,7 @@ export default function TestContactSender( { onBack } ) {
 				</Button>
 				<h2>Test Dashboard</h2>
 				<p className="description">
-					Send test contacts with random data to any dashboard via its webhook.
+					Send test contacts with random data to any dashboard via the shared webhook.
 				</p>
 			</div>
 
@@ -159,7 +139,10 @@ export default function TestContactSender( { onBack } ) {
 					label="Dashboard"
 					value={ selectedDashboardId }
 					options={ dashboardOptions }
-					onChange={ setSelectedDashboardId }
+					onChange={ ( val ) => {
+						setSelectedDashboardId( val );
+						setResults( null );
+					} }
 				/>
 
 				{ webhookStatus }

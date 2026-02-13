@@ -27,20 +27,8 @@ class AdvDash_Activator {
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
-			UNIQUE KEY wp_user_id (wp_user_id)
-		) {$charset_collate};";
-
-		// Webhooks table.
-		$table_webhooks = $wpdb->prefix . 'advdash_webhooks';
-		$sql[] = "CREATE TABLE {$table_webhooks} (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			dashboard_id bigint(20) unsigned NOT NULL,
-			webhook_key varchar(64) NOT NULL,
-			is_active tinyint(1) DEFAULT 1,
-			created_at datetime DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY webhook_key (webhook_key),
-			UNIQUE KEY dashboard_id (dashboard_id)
+			UNIQUE KEY wp_user_id (wp_user_id),
+			UNIQUE KEY member_workshop_code (member_workshop_code)
 		) {$charset_collate};";
 
 		// Contacts table.

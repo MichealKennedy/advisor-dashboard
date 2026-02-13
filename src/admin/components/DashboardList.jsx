@@ -25,7 +25,7 @@ export default function DashboardList( { onEdit, onCreate } ) {
 	}, [] );
 
 	const handleDelete = async ( id, name ) => {
-		if ( ! window.confirm( `Are you sure you want to delete "${ name }"? This will also delete all associated contacts and the webhook.` ) ) {
+		if ( ! window.confirm( `Are you sure you want to delete "${ name }"? This will also delete all associated contacts.` ) ) {
 			return;
 		}
 
@@ -79,7 +79,6 @@ export default function DashboardList( { onEdit, onCreate } ) {
 							<th>Attended Other</th>
 							<th>Fed Request</th>
 							<th>Total</th>
-							<th>Webhook</th>
 							<th>Created</th>
 							<th>Actions</th>
 						</tr>
@@ -97,13 +96,6 @@ export default function DashboardList( { onEdit, onCreate } ) {
 								<td>{ dashboard.tab_attended_other || 0 }</td>
 								<td>{ dashboard.tab_fed_request || 0 }</td>
 								<td><strong>{ dashboard.contact_count }</strong></td>
-								<td>
-									{ dashboard.webhook_active === null
-										? 'Not configured'
-										: dashboard.webhook_active
-											? 'Active'
-											: 'Inactive' }
-								</td>
 								<td>{ dashboard.created_at }</td>
 								<td>
 									<Button

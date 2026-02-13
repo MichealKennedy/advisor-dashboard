@@ -171,8 +171,8 @@ export default function DashboardEditor( { id, onBack } ) {
 
 			{ savedId && (
 				<div className="advdash-admin__webhook-section">
-					<h3>Webhook Configuration</h3>
-					<WebhookManager dashboardId={ savedId } />
+					<h3>Webhook Reference</h3>
+					<WebhookManager advisorCode={ memberWorkshopCode } />
 				</div>
 			) }
 		</div>

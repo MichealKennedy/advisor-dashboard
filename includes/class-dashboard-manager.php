@@ -6,14 +6,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AdvDash_Dashboard_Manager {
 
 	private $table_dashboards;
-	private $table_webhooks;
 	private $table_contacts;
 	private $table_webhook_logs;
 
 	public function __construct() {
 		global $wpdb;
 		$this->table_dashboards   = $wpdb->prefix . 'advdash_dashboards';
-		$this->table_webhooks     = $wpdb->prefix . 'advdash_webhooks';
 		$this->table_contacts     = $wpdb->prefix . 'advdash_contacts';
 		$this->table_webhook_logs = $wpdb->prefix . 'advdash_webhook_logs';
 	}
@@ -28,7 +26,6 @@ class AdvDash_Dashboard_Manager {
 		return $wpdb->get_results(
 			"SELECT d.*,
 				u.display_name AS user_display_name,
-				w.is_active AS webhook_active,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id ) AS contact_count,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'current_registrations' ) AS tab_current_registrations,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'attended_report' ) AS tab_attended_report,
@@ -36,7 +33,6 @@ class AdvDash_Dashboard_Manager {
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'fed_request' ) AS tab_fed_request
 			FROM {$this->table_dashboards} d
 			LEFT JOIN {$wpdb->users} u ON u.ID = d.wp_user_id
-			LEFT JOIN {$this->table_webhooks} w ON w.dashboard_id = d.id
 			ORDER BY d.created_at DESC"
 		);
 	}
@@ -123,87 +119,46 @@ class AdvDash_Dashboard_Manager {
 
 		$id = absint( $id );
 
-		// Cascade delete: logs, contacts, webhook, then dashboard.
+		// Cascade delete: logs, contacts, then dashboard.
 		$wpdb->delete( $this->table_webhook_logs, array( 'dashboard_id' => $id ), array( '%d' ) );
 		$wpdb->delete( $this->table_contacts, array( 'dashboard_id' => $id ), array( '%d' ) );
-		$wpdb->delete( $this->table_webhooks, array( 'dashboard_id' => $id ), array( '%d' ) );
 
 		return false !== $wpdb->delete( $this->table_dashboards, array( 'id' => $id ), array( '%d' ) );
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Webhook management
+	 * Shared webhook management
 	 * ---------------------------------------------------------------------- */
 
-	public function get_webhook( $dashboard_id ) {
-		global $wpdb;
-
-		$row = $wpdb->get_row( $wpdb->prepare(
-			"SELECT * FROM {$this->table_webhooks} WHERE dashboard_id = %d",
-			$dashboard_id
-		) );
-
-		if ( $row ) {
-			$row->webhook_url = rest_url( 'advisor-dashboard/v1/webhook/' . $row->webhook_key );
-		}
-
-		return $row;
-	}
-
-	public function get_webhook_by_key( $webhook_key ) {
+	public function get_dashboard_by_workshop_code( $code ) {
 		global $wpdb;
 
 		return $wpdb->get_row( $wpdb->prepare(
-			"SELECT * FROM {$this->table_webhooks} WHERE webhook_key = %s",
-			$webhook_key
+			"SELECT * FROM {$this->table_dashboards} WHERE LOWER(member_workshop_code) = LOWER(%s)",
+			$code
 		) );
 	}
 
-	public function create_webhook( $dashboard_id ) {
-		global $wpdb;
+	public function get_shared_webhook_key() {
+		return get_option( 'advdash_shared_webhook_key', '' );
+	}
 
-		// Delete any existing webhook for this dashboard first.
-		$wpdb->delete( $this->table_webhooks, array( 'dashboard_id' => absint( $dashboard_id ) ), array( '%d' ) );
-
+	public function generate_shared_webhook_key() {
 		$key = bin2hex( random_bytes( 32 ) );
+		update_option( 'advdash_shared_webhook_key', $key );
+		return $key;
+	}
 
-		$result = $wpdb->insert(
-			$this->table_webhooks,
-			array(
-				'dashboard_id' => absint( $dashboard_id ),
-				'webhook_key'  => $key,
-				'is_active'    => 1,
-			),
-			array( '%d', '%s', '%d' )
-		);
+	public function delete_shared_webhook_key() {
+		delete_option( 'advdash_shared_webhook_key' );
+	}
 
-		if ( false === $result ) {
-			return false;
+	public function get_shared_webhook_url() {
+		$key = $this->get_shared_webhook_key();
+		if ( empty( $key ) ) {
+			return '';
 		}
-
-		return $this->get_webhook( $dashboard_id );
-	}
-
-	public function toggle_webhook( $dashboard_id, $is_active ) {
-		global $wpdb;
-
-		return false !== $wpdb->update(
-			$this->table_webhooks,
-			array( 'is_active' => $is_active ? 1 : 0 ),
-			array( 'dashboard_id' => absint( $dashboard_id ) ),
-			array( '%d' ),
-			array( '%d' )
-		);
-	}
-
-	public function delete_webhook( $dashboard_id ) {
-		global $wpdb;
-
-		return false !== $wpdb->delete(
-			$this->table_webhooks,
-			array( 'dashboard_id' => absint( $dashboard_id ) ),
-			array( '%d' )
-		);
+		return rest_url( 'advisor-dashboard/v1/webhook/' . $key );
 	}
 
 	/* -------------------------------------------------------------------------

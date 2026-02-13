@@ -19,21 +19,14 @@ export const updateDashboard = ( id, data ) =>
 export const deleteDashboard = ( id ) =>
 	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ id }`, method: 'DELETE' } );
 
-export const getWebhook = ( dashboardId ) =>
-	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/webhook` } );
+export const getSharedWebhook = () =>
+	apiFetch( { path: '/advisor-dashboard/v1/shared-webhook' } );
 
-export const createWebhook = ( dashboardId ) =>
-	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/webhook`, method: 'POST' } );
+export const generateSharedWebhook = () =>
+	apiFetch( { path: '/advisor-dashboard/v1/shared-webhook', method: 'POST' } );
 
-export const toggleWebhook = ( dashboardId, isActive ) =>
-	apiFetch( {
-		path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/webhook`,
-		method: 'PUT',
-		data: { is_active: isActive },
-	} );
-
-export const deleteWebhook = ( dashboardId ) =>
-	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/webhook`, method: 'DELETE' } );
+export const deleteSharedWebhook = () =>
+	apiFetch( { path: '/advisor-dashboard/v1/shared-webhook', method: 'DELETE' } );
 
 /* -------------------------------------------------------------------------
  * Frontend API

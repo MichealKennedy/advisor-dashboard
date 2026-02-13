@@ -3,7 +3,7 @@
  * Plugin Name: Advisor Dashboard
  * Plugin URI:  https://profeds.com
  * Description: Workshop advisor dashboard with webhook-driven contact management from HighLevel.
- * Version:     0.5.0
+ * Version:     0.6.0
  * Author:      Mike Kennedy
  * Author URI:  https://michealkennedy.com
  * License:     GPL-2.0-or-later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'ADVDASH_VERSION', '1.0.0' );
-define( 'ADVDASH_DB_VERSION', '1.2.0' );
+define( 'ADVDASH_DB_VERSION', '1.3.0' );
 define( 'ADVDASH_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ADVDASH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 

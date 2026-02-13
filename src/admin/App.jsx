@@ -4,6 +4,7 @@ import DashboardList from './components/DashboardList';
 import DashboardEditor from './components/DashboardEditor';
 import TestContactSender from './components/TestContactSender';
 import WebhookLogViewer from './components/WebhookLogViewer';
+import SharedWebhookManager from './components/SharedWebhookManager';
 
 function HelpDialog( { onClose } ) {
 	return (
@@ -11,14 +12,20 @@ function HelpDialog( { onClose } ) {
 			<div className="advdash-admin__help">
 				<h3>Getting Started</h3>
 				<ol>
-					<li><strong>Create a dashboard</strong> &mdash; Click "Add New Dashboard", give it a name, select the advisor's WordPress user account, and enter their member workshop code (e.g., "SFG").</li>
-					<li><strong>Generate a webhook URL</strong> &mdash; After saving, scroll down to Webhook Configuration and click "Generate Webhook URL". Copy the URL.</li>
-					<li><strong>Set up HighLevel workflows</strong> &mdash; In each HighLevel workflow, add a Webhook action that POSTs to the copied URL. Include the <code>tab</code> and contact fields as Custom Data (see below).</li>
+					<li><strong>Generate the shared webhook</strong> &mdash; On the main page, click "Generate Shared Webhook URL" and copy the URL.</li>
+					<li><strong>Create a dashboard</strong> &mdash; Click "Add New Dashboard", give it a name, select the advisor's WordPress user account, and enter their unique member workshop code (e.g., "SFG").</li>
+					<li><strong>Set up HighLevel workflows</strong> &mdash; In your HighLevel workflow, add a Webhook action that POSTs to the shared URL. Include <code>advisor_code</code>, <code>tab</code>, and contact fields as Custom Data (see below).</li>
 					<li><strong>Add the block to a page</strong> &mdash; In the WordPress block editor, add the "Advisor Dashboard" block to any page. When an advisor visits that page while logged in, they'll see their tabbed dashboard.</li>
 				</ol>
 
+				<h3>Shared Webhook</h3>
+				<p>
+					A single webhook URL is shared by all advisors. Each HighLevel workflow payload must include
+					an <code>advisor_code</code> field set to the advisor's <strong>Member Workshop Code</strong> to route
+					contacts to the correct dashboard. The <code>tab</code> field determines which tab the contact appears on.
+				</p>
+
 				<h3>HighLevel Webhook Setup</h3>
-				<p>Each workflow sends data to the <strong>same webhook URL</strong> for a given advisor. The <code>tab</code> custom data field determines which tab the contact appears on.</p>
 
 				<table className="widefat striped" style={ { marginBottom: '16px' } }>
 					<thead>
@@ -60,15 +67,15 @@ function HelpDialog( { onClose } ) {
 				<h3>HighLevel Custom Data Fields</h3>
 				<p>Add these as key-value pairs in the webhook action's <strong>Custom Data</strong> section:</p>
 				<ul>
+					<li><code>advisor_code</code> &mdash; <strong>Required.</strong> The advisor's Member Workshop Code (e.g., "SFG"). Routes the contact to the correct dashboard.</li>
 					<li><code>tab</code> &mdash; <strong>Required.</strong> One of the tab values above.</li>
 					<li><code>_action</code> &mdash; Optional. Set to <code>remove</code> only for cancellation workflows. Omit it for add/update.</li>
 					<li><code>contact_id</code> &mdash; The HighLevel contact ID. Required for remove actions, strongly recommended for adds (enables upsert).</li>
 					<li><code>first_name</code>, <code>last_name</code>, <code>city</code>, <code>state</code>, etc. &mdash; Any contact fields you want to store. Use the HighLevel merge field tags to populate them.</li>
 				</ul>
 
-				<h3>Managing Webhooks</h3>
+				<h3>Managing the Webhook</h3>
 				<ul>
-					<li><strong>Toggle active/inactive</strong> &mdash; Pause incoming data without deleting the URL.</li>
 					<li><strong>Regenerate</strong> &mdash; Creates a new URL (the old one stops working immediately).</li>
 					<li><strong>Delete</strong> &mdash; Removes the webhook entirely.</li>
 				</ul>
@@ -114,7 +121,10 @@ export default function App() {
 			</div>
 			{ showHelp && <HelpDialog onClose={ () => setShowHelp( false ) } /> }
 			{ view === 'list' && (
-				<DashboardList onEdit={ handleEdit } onCreate={ handleCreate } />
+				<>
+					<SharedWebhookManager />
+					<DashboardList onEdit={ handleEdit } onCreate={ handleCreate } />
+				</>
 			) }
 			{ view === 'editor' && (
 				<DashboardEditor id={ selectedId } onBack={ handleBack } />

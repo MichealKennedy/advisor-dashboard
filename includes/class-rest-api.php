@@ -66,26 +66,21 @@ class AdvDash_Rest_API {
 			),
 		) );
 
-		// ----- Admin: Webhook management -----
-		register_rest_route( $this->namespace, '/dashboards/(?P<id>\d+)/webhook', array(
+		// ----- Admin: Shared webhook management -----
+		register_rest_route( $this->namespace, '/shared-webhook', array(
 			array(
 				'methods'             => 'GET',
-				'callback'            => array( $this, 'get_webhook' ),
+				'callback'            => array( $this, 'get_shared_webhook' ),
 				'permission_callback' => array( $this, 'check_admin' ),
 			),
 			array(
 				'methods'             => 'POST',
-				'callback'            => array( $this, 'create_webhook' ),
-				'permission_callback' => array( $this, 'check_admin' ),
-			),
-			array(
-				'methods'             => 'PUT',
-				'callback'            => array( $this, 'toggle_webhook' ),
+				'callback'            => array( $this, 'generate_shared_webhook' ),
 				'permission_callback' => array( $this, 'check_admin' ),
 			),
 			array(
 				'methods'             => 'DELETE',
-				'callback'            => array( $this, 'delete_webhook' ),
+				'callback'            => array( $this, 'delete_shared_webhook' ),
 				'permission_callback' => array( $this, 'check_admin' ),
 			),
 		) );
@@ -377,78 +372,35 @@ class AdvDash_Rest_API {
 	}
 
 	/* -------------------------------------------------------------------------
-	 * Admin: Webhook management
+	 * Admin: Shared webhook management
 	 * ---------------------------------------------------------------------- */
 
-	public function get_webhook( WP_REST_Request $request ) {
-		$dashboard_id = $request->get_param( 'id' );
-		$webhook      = $this->manager->get_webhook( $dashboard_id );
+	public function get_shared_webhook( WP_REST_Request $request ) {
+		$key = $this->manager->get_shared_webhook_key();
 
-		if ( ! $webhook ) {
+		if ( empty( $key ) ) {
 			return new WP_REST_Response( array( 'exists' => false ), 200 );
 		}
 
 		return new WP_REST_Response( array(
 			'exists'      => true,
-			'id'          => $webhook->id,
-			'dashboard_id' => $webhook->dashboard_id,
-			'webhook_key' => $webhook->webhook_key,
-			'webhook_url' => $webhook->webhook_url,
-			'is_active'   => (bool) $webhook->is_active,
-			'created_at'  => $webhook->created_at,
+			'webhook_key' => $key,
+			'webhook_url' => $this->manager->get_shared_webhook_url(),
 		), 200 );
 	}
 
-	public function create_webhook( WP_REST_Request $request ) {
-		$dashboard_id = $request->get_param( 'id' );
-
-		$existing = $this->manager->get_dashboard( $dashboard_id );
-		if ( ! $existing ) {
-			return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
-		}
-
-		$webhook = $this->manager->create_webhook( $dashboard_id );
-
-		if ( ! $webhook ) {
-			return new WP_Error( 'create_failed', 'Failed to create webhook.', array( 'status' => 500 ) );
-		}
+	public function generate_shared_webhook( WP_REST_Request $request ) {
+		$key = $this->manager->generate_shared_webhook_key();
 
 		return new WP_REST_Response( array(
 			'exists'      => true,
-			'id'          => $webhook->id,
-			'dashboard_id' => $webhook->dashboard_id,
-			'webhook_key' => $webhook->webhook_key,
-			'webhook_url' => $webhook->webhook_url,
-			'is_active'   => (bool) $webhook->is_active,
-			'created_at'  => $webhook->created_at,
+			'webhook_key' => $key,
+			'webhook_url' => $this->manager->get_shared_webhook_url(),
 		), 201 );
 	}
 
-	public function toggle_webhook( WP_REST_Request $request ) {
-		$dashboard_id = $request->get_param( 'id' );
-		$is_active    = (bool) $request->get_param( 'is_active' );
-
-		$result = $this->manager->toggle_webhook( $dashboard_id, $is_active );
-
-		if ( ! $result ) {
-			return new WP_Error( 'toggle_failed', 'Failed to toggle webhook.', array( 'status' => 500 ) );
-		}
-
-		$webhook = $this->manager->get_webhook( $dashboard_id );
-		return new WP_REST_Response( array(
-			'exists'    => true,
-			'is_active' => (bool) $webhook->is_active,
-		), 200 );
-	}
-
-	public function delete_webhook( WP_REST_Request $request ) {
-		$dashboard_id = $request->get_param( 'id' );
-
-		$result = $this->manager->delete_webhook( $dashboard_id );
-
-		if ( ! $result ) {
-			return new WP_Error( 'delete_failed', 'Failed to delete webhook.', array( 'status' => 500 ) );
-		}
+	public function delete_shared_webhook( WP_REST_Request $request ) {
+		$this->manager->delete_shared_webhook_key();
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}

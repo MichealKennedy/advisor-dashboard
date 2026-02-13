@@ -6,7 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AdvDash_Webhook_Handler {
 
 	private $manager;
-	private $current_webhook = null;
 
 	private static $valid_tabs = array(
 		'current_registrations',
@@ -75,6 +74,9 @@ class AdvDash_Webhook_Handler {
 		'date_of_lead_request',
 	);
 
+	// Reserved fields that are not contact data.
+	private static $reserved_fields = array( 'tab', '_action', 'advisor_code', 'advisorCode' );
+
 	public function __construct( AdvDash_Dashboard_Manager $manager ) {
 		$this->manager = $manager;
 	}
@@ -84,7 +86,6 @@ class AdvDash_Webhook_Handler {
 		$webhook_key = $request->get_param( 'webhook_key' );
 		$ip_address  = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
 
-		$this->current_webhook = null;
 		$result = $this->process_webhook( $request );
 
 		if ( get_option( 'advdash_webhook_logging', '0' ) === '1' ) {
@@ -97,24 +98,19 @@ class AdvDash_Webhook_Handler {
 	private function process_webhook( WP_REST_Request $request ) {
 		$webhook_key = $request->get_param( 'webhook_key' );
 
-		// 1. Look up webhook key.
-		$webhook = $this->manager->get_webhook_by_key( $webhook_key );
-		$this->current_webhook = $webhook;
+		// 1. Validate shared webhook key.
+		$stored_key = $this->manager->get_shared_webhook_key();
 
-		if ( ! $webhook ) {
+		if ( empty( $stored_key ) || ! hash_equals( $stored_key, $webhook_key ) ) {
 			error_log( '[AdvDash] Webhook 404: invalid key attempted.' );
 			return new WP_Error( 'invalid_key', 'Invalid webhook key.', array( 'status' => 404 ) );
 		}
 
-		if ( ! $webhook->is_active ) {
-			return new WP_Error( 'inactive_webhook', 'This webhook is currently inactive.', array( 'status' => 403 ) );
-		}
-
-		// 2. Rate limiting — 60 requests per minute per key.
-		$rate_key = 'advdash_rate_' . substr( $webhook_key, 0, 16 );
+		// 2. Rate limiting — 120 requests per minute for shared endpoint.
+		$rate_key = 'advdash_shared_rate';
 		$count    = (int) get_transient( $rate_key );
 
-		if ( $count >= 60 ) {
+		if ( $count >= 120 ) {
 			return new WP_Error( 'rate_limited', 'Too many requests. Try again later.', array( 'status' => 429 ) );
 		}
 
@@ -128,10 +124,37 @@ class AdvDash_Webhook_Handler {
 			return new WP_Error( 'invalid_payload', 'Request body could not be parsed.', array( 'status' => 400 ) );
 		}
 
-		// Log the flattened payload for debugging (remove this once stable).
+		// Log the flattened payload for debugging.
 		error_log( '[AdvDash] Webhook received payload: ' . wp_json_encode( $body ) );
 
-		// 4. Extract reserved fields.
+		// 4. Extract advisor_code — REQUIRED for shared webhook.
+		$advisor_code = isset( $body['advisor_code'] ) ? sanitize_text_field( $body['advisor_code'] ) : '';
+		if ( empty( $advisor_code ) && isset( $body['advisorCode'] ) ) {
+			$advisor_code = sanitize_text_field( $body['advisorCode'] );
+		}
+
+		if ( empty( $advisor_code ) ) {
+			return new WP_Error(
+				'missing_advisor_code',
+				'The "advisor_code" field is required.',
+				array( 'status' => 400 )
+			);
+		}
+
+		// 5. Look up dashboard by advisor code.
+		$dashboard = $this->manager->get_dashboard_by_workshop_code( $advisor_code );
+
+		if ( ! $dashboard ) {
+			return new WP_Error(
+				'unknown_advisor_code',
+				'No dashboard found for advisor_code: ' . $advisor_code,
+				array( 'status' => 404 )
+			);
+		}
+
+		$dashboard_id = (int) $dashboard->id;
+
+		// 6. Extract reserved fields.
 		$tab = isset( $body['tab'] ) ? sanitize_text_field( $body['tab'] ) : '';
 
 		if ( ! in_array( $tab, self::$valid_tabs, true ) ) {
@@ -148,12 +171,10 @@ class AdvDash_Webhook_Handler {
 			return new WP_Error( 'invalid_action', 'The "_action" field must be "add" or "remove".', array( 'status' => 400 ) );
 		}
 
-		$dashboard_id = (int) $webhook->dashboard_id;
-
-		// 5. Map fields.
+		// 7. Map fields.
 		$mapped_data = array();
 		foreach ( $body as $key => $value ) {
-			if ( in_array( $key, array( 'tab', '_action' ), true ) ) {
+			if ( in_array( $key, self::$reserved_fields, true ) ) {
 				continue; // Skip reserved fields.
 			}
 			// Skip non-scalar values (arrays/objects that weren't flattened).
@@ -171,7 +192,7 @@ class AdvDash_Webhook_Handler {
 
 		$contact_id = isset( $mapped_data['contact_id'] ) ? $mapped_data['contact_id'] : null;
 
-		// 6. Dispatch action.
+		// 8. Dispatch action.
 		if ( 'remove' === $action ) {
 			return $this->handle_remove( $dashboard_id, $tab, $contact_id );
 		}
@@ -357,17 +378,26 @@ class AdvDash_Webhook_Handler {
 	}
 
 	private function log_result( $webhook_key, $raw_body, $ip_address, $result ) {
-		$dashboard_id = $this->current_webhook ? (int) $this->current_webhook->dashboard_id : null;
-
 		// Parse tab/action/contact_id from raw body for indexable columns.
 		$body_data         = json_decode( $raw_body, true );
 		$parsed_tab        = null;
 		$parsed_action     = null;
 		$parsed_contact_id = null;
+		$dashboard_id      = null;
+
 		if ( is_array( $body_data ) ) {
 			$parsed_tab        = isset( $body_data['tab'] ) ? $body_data['tab'] : null;
 			$parsed_action     = isset( $body_data['_action'] ) ? $body_data['_action'] : 'add';
 			$parsed_contact_id = isset( $body_data['contact_id'] ) ? $body_data['contact_id'] : ( isset( $body_data['contactId'] ) ? $body_data['contactId'] : null );
+
+			// Resolve dashboard_id from advisor_code.
+			$advisor_code = isset( $body_data['advisor_code'] ) ? $body_data['advisor_code'] : ( isset( $body_data['advisorCode'] ) ? $body_data['advisorCode'] : null );
+			if ( $advisor_code ) {
+				$dashboard = $this->manager->get_dashboard_by_workshop_code( $advisor_code );
+				if ( $dashboard ) {
+					$dashboard_id = (int) $dashboard->id;
+				}
+			}
 		}
 
 		if ( is_wp_error( $result ) ) {
@@ -388,7 +418,7 @@ class AdvDash_Webhook_Handler {
 
 		$this->manager->create_webhook_log( array(
 			'dashboard_id'      => $dashboard_id,
-			'webhook_key'       => $webhook_key,
+			'webhook_key'       => 'shared',
 			'request_body'      => $raw_body,
 			'parsed_tab'        => $parsed_tab,
 			'parsed_action'     => $parsed_action,
