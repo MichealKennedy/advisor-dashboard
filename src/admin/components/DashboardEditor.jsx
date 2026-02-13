@@ -1,16 +1,17 @@
 import { useState, useEffect } from '@wordpress/element';
 import { TextControl, SelectControl, Button, Spinner, Notice } from '@wordpress/components';
 import apiFetch from '@wordpress/api-fetch';
-import { getDashboard, createDashboard, updateDashboard } from '../../shared/api';
+import { getDashboard, createDashboard, updateDashboard, addDashboardUser, removeDashboardUser } from '../../shared/api';
 import WebhookManager from './WebhookManager';
 
 export default function DashboardEditor( { id, onBack } ) {
 	const isNew = ! id;
 
 	const [ name, setName ] = useState( '' );
-	const [ wpUserId, setWpUserId ] = useState( '' );
 	const [ memberWorkshopCode, setMemberWorkshopCode ] = useState( '' );
 	const [ users, setUsers ] = useState( [] );
+	const [ assignedUsers, setAssignedUsers ] = useState( [] );
+	const [ newUserId, setNewUserId ] = useState( '' );
 	const [ isLoading, setIsLoading ] = useState( ! isNew );
 	const [ isSaving, setIsSaving ] = useState( false );
 	const [ error, setError ] = useState( null );
@@ -52,8 +53,8 @@ export default function DashboardEditor( { id, onBack } ) {
 			getDashboard( id )
 				.then( ( data ) => {
 					setName( data.name || '' );
-					setWpUserId( String( data.wp_user_id ) );
 					setMemberWorkshopCode( data.member_workshop_code || '' );
+					setAssignedUsers( data.users || [] );
 					setSavedId( data.id );
 				} )
 				.catch( ( err ) => {
@@ -65,13 +66,47 @@ export default function DashboardEditor( { id, onBack } ) {
 		}
 	}, [ id, isNew ] );
 
+	const handleAddUser = async () => {
+		if ( ! newUserId ) {
+			return;
+		}
+
+		if ( savedId ) {
+			// Existing dashboard: use the REST endpoint.
+			try {
+				const updatedUsers = await addDashboardUser( savedId, parseInt( newUserId, 10 ) );
+				setAssignedUsers( updatedUsers );
+				setNewUserId( '' );
+			} catch ( err ) {
+				setError( err.message || 'Failed to add user.' );
+			}
+		} else {
+			// New dashboard not yet saved: add to local state.
+			const user = users.find( ( u ) => u.value === newUserId );
+			setAssignedUsers( ( prev ) => [
+				...prev,
+				{ wp_user_id: parseInt( newUserId, 10 ), display_name: user?.label || '' },
+			] );
+			setNewUserId( '' );
+		}
+	};
+
+	const handleRemoveUser = async ( userId ) => {
+		if ( savedId ) {
+			try {
+				await removeDashboardUser( savedId, userId );
+				setAssignedUsers( ( prev ) => prev.filter( ( u ) => Number( u.wp_user_id ) !== Number( userId ) ) );
+			} catch ( err ) {
+				setError( err.message || 'Failed to remove user.' );
+			}
+		} else {
+			setAssignedUsers( ( prev ) => prev.filter( ( u ) => Number( u.wp_user_id ) !== Number( userId ) ) );
+		}
+	};
+
 	const handleSave = async () => {
 		if ( ! name.trim() ) {
 			setError( 'Dashboard name is required.' );
-			return;
-		}
-		if ( ! wpUserId ) {
-			setError( 'Please select an advisor.' );
 			return;
 		}
 
@@ -81,13 +116,20 @@ export default function DashboardEditor( { id, onBack } ) {
 		try {
 			const data = {
 				name: name.trim(),
-				wp_user_id: parseInt( wpUserId, 10 ),
 				member_workshop_code: memberWorkshopCode.trim(),
 			};
 
 			if ( isNew && ! savedId ) {
+				// Include users for initial creation.
+				if ( assignedUsers.length > 0 ) {
+					data.wp_user_id = assignedUsers[ 0 ].wp_user_id;
+					if ( assignedUsers.length > 1 ) {
+						data.wp_user_ids = assignedUsers.slice( 1 ).map( ( u ) => u.wp_user_id );
+					}
+				}
 				const result = await createDashboard( data );
 				setSavedId( result.id );
+				setAssignedUsers( result.users || [] );
 				setNotice( 'Dashboard created successfully.' );
 			} else {
 				await updateDashboard( savedId, data );
@@ -107,6 +149,11 @@ export default function DashboardEditor( { id, onBack } ) {
 			</div>
 		);
 	}
+
+	// Filter out already-assigned users from the dropdown.
+	const availableUsers = users.filter(
+		( u ) => ! assignedUsers.some( ( au ) => String( au.wp_user_id ) === u.value )
+	);
 
 	return (
 		<div className="advdash-admin__editor">
@@ -136,16 +183,6 @@ export default function DashboardEditor( { id, onBack } ) {
 					placeholder="e.g., SFG Dashboard"
 				/>
 
-				<SelectControl
-					label="Advisor (WordPress User)"
-					value={ wpUserId }
-					options={ [
-						{ label: '— Select an advisor —', value: '' },
-						...users,
-					] }
-					onChange={ setWpUserId }
-				/>
-
 				<TextControl
 					label="Member Workshop Code"
 					value={ memberWorkshopCode }
@@ -153,6 +190,47 @@ export default function DashboardEditor( { id, onBack } ) {
 					placeholder="e.g., SFG"
 					help="The advisor's member code used in HighLevel."
 				/>
+
+				<div className="advdash-admin__users-section">
+					<h4>Assigned Advisors</h4>
+					{ assignedUsers.length === 0 && (
+						<p className="advdash-admin__users-empty">No advisors assigned yet.</p>
+					) }
+					{ assignedUsers.length > 0 && (
+						<ul className="advdash-admin__user-list">
+							{ assignedUsers.map( ( u ) => (
+								<li key={ u.wp_user_id }>
+									<span>{ u.display_name }</span>
+									<Button
+										variant="link"
+										isDestructive
+										onClick={ () => handleRemoveUser( u.wp_user_id ) }
+									>
+										Remove
+									</Button>
+								</li>
+							) ) }
+						</ul>
+					) }
+					<div className="advdash-admin__add-user-row">
+						<SelectControl
+							label="Add Advisor"
+							value={ newUserId }
+							options={ [
+								{ label: '— Select a user —', value: '' },
+								...availableUsers,
+							] }
+							onChange={ setNewUserId }
+						/>
+						<Button
+							variant="secondary"
+							onClick={ handleAddUser }
+							disabled={ ! newUserId }
+						>
+							Add
+						</Button>
+					</div>
+				</div>
 
 				<div className="advdash-admin__form-actions">
 					<Button

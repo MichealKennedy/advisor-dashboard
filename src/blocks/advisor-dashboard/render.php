@@ -15,23 +15,34 @@ if ( ! is_user_logged_in() ) {
 	return;
 }
 
-// Check if user has a dashboard.
+// Check if user has a dashboard (via junction table).
 global $wpdb;
-$user_id   = get_current_user_id();
-$table     = $wpdb->prefix . 'advdash_dashboards';
-$is_admin  = current_user_can( 'manage_options' );
-$dashboard = $wpdb->get_row( $wpdb->prepare(
-	"SELECT id, name FROM {$table} WHERE wp_user_id = %d",
+$user_id          = get_current_user_id();
+$table_dashboards = $wpdb->prefix . 'advdash_dashboards';
+$table_users      = $wpdb->prefix . 'advdash_dashboard_users';
+$is_admin         = current_user_can( 'manage_options' );
+
+// Find dashboards assigned to this user via junction table.
+$user_dashboards = $wpdb->get_results( $wpdb->prepare(
+	"SELECT d.id, d.name FROM {$table_dashboards} d
+	 INNER JOIN {$table_users} du ON du.dashboard_id = d.id
+	 WHERE du.wp_user_id = %d
+	 ORDER BY d.name ASC",
 	$user_id
 ) );
+
+$dashboard = ! empty( $user_dashboards ) ? $user_dashboards[0] : null;
 
 // For admins, fetch all dashboards so they can switch between them.
 $all_dashboards = array();
 if ( $is_admin ) {
 	$all_dashboards = $wpdb->get_results(
-		"SELECT d.id, d.name, u.display_name AS user_display_name
-		 FROM {$table} d
-		 LEFT JOIN {$wpdb->users} u ON u.ID = d.wp_user_id
+		"SELECT d.id, d.name,
+			GROUP_CONCAT(u.display_name ORDER BY du.created_at SEPARATOR ', ') AS user_display_name
+		 FROM {$table_dashboards} d
+		 LEFT JOIN {$table_users} du ON du.dashboard_id = d.id
+		 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
+		 GROUP BY d.id, d.name
 		 ORDER BY d.name ASC"
 	);
 }
@@ -79,6 +90,12 @@ wp_localize_script( $view_handle, 'advdashFrontend', array(
 			'user' => $d->user_display_name,
 		);
 	}, $all_dashboards ) : array(),
+	'userDashboards' => ! $is_admin ? array_map( function( $d ) {
+		return array(
+			'id'   => (int) $d->id,
+			'name' => $d->name,
+		);
+	}, $user_dashboards ) : array(),
 	'columnPrefs'    => $column_prefs,
 ) );
 

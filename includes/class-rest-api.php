@@ -42,8 +42,9 @@ class AdvDash_Rest_API {
 				'callback'            => array( $this, 'create_dashboard' ),
 				'permission_callback' => array( $this, 'check_admin' ),
 				'args'                => array(
-					'name'       => array( 'required' => true, 'type' => 'string' ),
-					'wp_user_id' => array( 'required' => true, 'type' => 'integer' ),
+					'name'        => array( 'required' => true, 'type' => 'string' ),
+					'wp_user_id'  => array( 'required' => false, 'type' => 'integer' ),
+					'wp_user_ids' => array( 'required' => false, 'type' => 'array' ),
 				),
 			),
 		) );
@@ -64,6 +65,29 @@ class AdvDash_Rest_API {
 				'callback'            => array( $this, 'delete_dashboard' ),
 				'permission_callback' => array( $this, 'check_admin' ),
 			),
+		) );
+
+		// ----- Admin: Dashboard user management -----
+		register_rest_route( $this->namespace, '/dashboards/(?P<id>\d+)/users', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_dashboard_users' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+			),
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'add_dashboard_user' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'wp_user_id' => array( 'required' => true, 'type' => 'integer' ),
+				),
+			),
+		) );
+
+		register_rest_route( $this->namespace, '/dashboards/(?P<id>\d+)/users/(?P<user_id>\d+)', array(
+			'methods'             => 'DELETE',
+			'callback'            => array( $this, 'remove_dashboard_user' ),
+			'permission_callback' => array( $this, 'check_admin' ),
 		) );
 
 		// ----- Admin: Shared webhook management -----
@@ -313,14 +337,27 @@ class AdvDash_Rest_API {
 	public function create_dashboard( WP_REST_Request $request ) {
 		$data = array(
 			'name'                 => $request->get_param( 'name' ),
-			'wp_user_id'           => $request->get_param( 'wp_user_id' ),
+			'wp_user_id'           => $request->get_param( 'wp_user_id' ) ?: 0,
 			'member_workshop_code' => $request->get_param( 'member_workshop_code' ),
 		);
 
 		$dashboard = $this->manager->create_dashboard( $data );
 
 		if ( ! $dashboard ) {
-			return new WP_Error( 'create_failed', 'Failed to create dashboard. The user may already have a dashboard.', array( 'status' => 400 ) );
+			return new WP_Error( 'create_failed', 'Failed to create dashboard.', array( 'status' => 400 ) );
+		}
+
+		// Add additional users if provided via wp_user_ids array.
+		$user_ids = $request->get_param( 'wp_user_ids' );
+		if ( is_array( $user_ids ) ) {
+			foreach ( $user_ids as $uid ) {
+				$uid = absint( $uid );
+				if ( $uid && $uid !== absint( $data['wp_user_id'] ) ) {
+					$this->manager->add_dashboard_user( $dashboard->id, $uid );
+				}
+			}
+			// Refresh to get updated user list.
+			$dashboard = $this->manager->get_dashboard( $dashboard->id );
 		}
 
 		return new WP_REST_Response( $dashboard, 201 );
@@ -337,9 +374,6 @@ class AdvDash_Rest_API {
 		$data = array();
 		if ( $request->has_param( 'name' ) ) {
 			$data['name'] = $request->get_param( 'name' );
-		}
-		if ( $request->has_param( 'wp_user_id' ) ) {
-			$data['wp_user_id'] = $request->get_param( 'wp_user_id' );
 		}
 		if ( $request->has_param( 'member_workshop_code' ) ) {
 			$data['member_workshop_code'] = $request->get_param( 'member_workshop_code' );
@@ -369,6 +403,63 @@ class AdvDash_Rest_API {
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'message' => 'Dashboard deleted.' ), 200 );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Admin: Dashboard user management
+	 * ---------------------------------------------------------------------- */
+
+	public function get_dashboard_users( WP_REST_Request $request ) {
+		$id = $request->get_param( 'id' );
+		$dashboard = $this->manager->get_dashboard( $id );
+
+		if ( ! $dashboard ) {
+			return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
+		}
+
+		$users = $this->manager->get_dashboard_users( $id );
+		return new WP_REST_Response( $users, 200 );
+	}
+
+	public function add_dashboard_user( WP_REST_Request $request ) {
+		$id         = $request->get_param( 'id' );
+		$wp_user_id = $request->get_param( 'wp_user_id' );
+
+		$dashboard = $this->manager->get_dashboard( $id );
+		if ( ! $dashboard ) {
+			return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
+		}
+
+		$user = get_userdata( $wp_user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'invalid_user', 'WordPress user not found.', array( 'status' => 400 ) );
+		}
+
+		$result = $this->manager->add_dashboard_user( $id, $wp_user_id );
+
+		if ( ! $result ) {
+			return new WP_Error( 'add_failed', 'Failed to add user. They may already be assigned.', array( 'status' => 400 ) );
+		}
+
+		return new WP_REST_Response( $this->manager->get_dashboard_users( $id ), 201 );
+	}
+
+	public function remove_dashboard_user( WP_REST_Request $request ) {
+		$id      = $request->get_param( 'id' );
+		$user_id = $request->get_param( 'user_id' );
+
+		$dashboard = $this->manager->get_dashboard( $id );
+		if ( ! $dashboard ) {
+			return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
+		}
+
+		$result = $this->manager->remove_dashboard_user( $id, $user_id );
+
+		if ( ! $result ) {
+			return new WP_Error( 'remove_failed', 'User was not assigned to this dashboard.', array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}
 
 	/* -------------------------------------------------------------------------
@@ -412,6 +503,7 @@ class AdvDash_Rest_API {
 	private function resolve_dashboard( WP_REST_Request $request ) {
 		$dashboard_id = $request->get_param( 'dashboard_id' );
 
+		// Admin override: can access any dashboard by ID.
 		if ( $dashboard_id && current_user_can( 'manage_options' ) ) {
 			$dashboard = $this->manager->get_dashboard( (int) $dashboard_id );
 			if ( ! $dashboard ) {
@@ -420,14 +512,25 @@ class AdvDash_Rest_API {
 			return $dashboard;
 		}
 
-		$user_id   = get_current_user_id();
-		$dashboard = $this->manager->get_dashboard_by_user( $user_id );
+		$user_id    = get_current_user_id();
+		$dashboards = $this->manager->get_dashboards_by_user( $user_id );
 
-		if ( ! $dashboard ) {
+		if ( empty( $dashboards ) ) {
 			return new WP_Error( 'no_dashboard', 'No dashboard is configured for your account.', array( 'status' => 403 ) );
 		}
 
-		return $dashboard;
+		// If a specific dashboard_id was requested, verify access.
+		if ( $dashboard_id ) {
+			foreach ( $dashboards as $d ) {
+				if ( (int) $d->id === (int) $dashboard_id ) {
+					return $d;
+				}
+			}
+			return new WP_Error( 'no_access', 'You do not have access to this dashboard.', array( 'status' => 403 ) );
+		}
+
+		// Default to first dashboard.
+		return $dashboards[0];
 	}
 
 	public function get_my_dashboard( WP_REST_Request $request ) {
@@ -435,6 +538,9 @@ class AdvDash_Rest_API {
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
 		}
+
+		$user_id         = get_current_user_id();
+		$user_dashboards = $this->manager->get_dashboards_by_user( $user_id );
 
 		return new WP_REST_Response( array(
 			'id'                   => $dashboard->id,
@@ -446,6 +552,9 @@ class AdvDash_Rest_API {
 				array( 'key' => 'attended_other', 'label' => "Attended Other Members' Workshop" ),
 				array( 'key' => 'fed_request', 'label' => 'Fed Employee Requested Advisor Report' ),
 			),
+			'user_dashboards'      => array_map( function( $d ) {
+				return array( 'id' => (int) $d->id, 'name' => $d->name );
+			}, $user_dashboards ),
 		), 200 );
 	}
 

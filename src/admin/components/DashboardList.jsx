@@ -72,7 +72,7 @@ export default function DashboardList( { onEdit, onCreate } ) {
 					<thead>
 						<tr>
 							<th>Name</th>
-							<th>Advisor</th>
+							<th>Advisors</th>
 							<th>Workshop Code</th>
 							<th>Registrations</th>
 							<th>Attended &amp; Report</th>

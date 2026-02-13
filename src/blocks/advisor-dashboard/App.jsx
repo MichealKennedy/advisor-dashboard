@@ -13,17 +13,23 @@ export default function App() {
 		dashboardName: initialDashboardName,
 		isAdmin,
 		allDashboards,
+		userDashboards,
 	} = window.advdashFrontend || {};
 
 	const [ selectedDashboardId, setSelectedDashboardId ] = useState( initialDashboardId );
 	const [ activeTab, setActiveTab ] = useState( getTabFromHash );
 
+	const hasMultipleDashboards = ! isAdmin && userDashboards && userDashboards.length > 1;
+
 	const currentDashboard = isAdmin
 		? allDashboards?.find( ( d ) => d.id === selectedDashboardId )
 		: null;
+	const userCurrentDashboard = hasMultipleDashboards
+		? userDashboards.find( ( d ) => d.id === selectedDashboardId )
+		: null;
 	const dashboardName = currentDashboard
 		? currentDashboard.name
-		: ( initialDashboardName || 'Advisor Dashboard' );
+		: ( userCurrentDashboard ? userCurrentDashboard.name : ( initialDashboardName || 'Advisor Dashboard' ) );
 
 	const handleTabChange = useCallback( ( tabKey ) => {
 		setActiveTab( tabKey );
@@ -65,12 +71,29 @@ export default function App() {
 						</select>
 					</div>
 				) }
+				{ hasMultipleDashboards && (
+					<div className="advdash__dashboard-selector">
+						<label htmlFor="advdash-user-dashboard-select">Your dashboards: </label>
+						<select
+							id="advdash-user-dashboard-select"
+							className="advdash__dashboard-select"
+							value={ selectedDashboardId }
+							onChange={ handleDashboardChange }
+						>
+							{ userDashboards.map( ( d ) => (
+								<option key={ d.id } value={ d.id }>
+									{ d.name }
+								</option>
+							) ) }
+						</select>
+					</div>
+				) }
 			</div>
 			<DashboardTabs
 				tabs={ TAB_CONFIG }
 				activeTab={ activeTab }
 				onTabChange={ handleTabChange }
-				dashboardId={ isAdmin ? selectedDashboardId : null }
+				dashboardId={ isAdmin || hasMultipleDashboards ? selectedDashboardId : null }
 				isAdmin={ !! isAdmin }
 			/>
 		</div>

@@ -6,14 +6,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AdvDash_Dashboard_Manager {
 
 	private $table_dashboards;
+	private $table_dashboard_users;
 	private $table_contacts;
 	private $table_webhook_logs;
 
 	public function __construct() {
 		global $wpdb;
-		$this->table_dashboards   = $wpdb->prefix . 'advdash_dashboards';
-		$this->table_contacts     = $wpdb->prefix . 'advdash_contacts';
-		$this->table_webhook_logs = $wpdb->prefix . 'advdash_webhook_logs';
+		$this->table_dashboards      = $wpdb->prefix . 'advdash_dashboards';
+		$this->table_dashboard_users = $wpdb->prefix . 'advdash_dashboard_users';
+		$this->table_contacts        = $wpdb->prefix . 'advdash_contacts';
+		$this->table_webhook_logs    = $wpdb->prefix . 'advdash_webhook_logs';
 	}
 
 	/* -------------------------------------------------------------------------
@@ -23,37 +25,75 @@ class AdvDash_Dashboard_Manager {
 	public function get_dashboards() {
 		global $wpdb;
 
-		return $wpdb->get_results(
+		$dashboards = $wpdb->get_results(
 			"SELECT d.*,
-				u.display_name AS user_display_name,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id ) AS contact_count,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'current_registrations' ) AS tab_current_registrations,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'attended_report' ) AS tab_attended_report,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'attended_other' ) AS tab_attended_other,
 				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'fed_request' ) AS tab_fed_request
 			FROM {$this->table_dashboards} d
-			LEFT JOIN {$wpdb->users} u ON u.ID = d.wp_user_id
 			ORDER BY d.created_at DESC"
 		);
+
+		foreach ( $dashboards as $dashboard ) {
+			$users = $wpdb->get_results( $wpdb->prepare(
+				"SELECT du.wp_user_id, u.display_name
+				 FROM {$this->table_dashboard_users} du
+				 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
+				 WHERE du.dashboard_id = %d
+				 ORDER BY du.created_at ASC",
+				$dashboard->id
+			) );
+			$dashboard->users              = $users;
+			$dashboard->user_display_name  = implode( ', ', wp_list_pluck( $users, 'display_name' ) );
+		}
+
+		return $dashboards;
 	}
 
 	public function get_dashboard( $id ) {
 		global $wpdb;
 
-		return $wpdb->get_row( $wpdb->prepare(
-			"SELECT d.*, u.display_name AS user_display_name
-			FROM {$this->table_dashboards} d
-			LEFT JOIN {$wpdb->users} u ON u.ID = d.wp_user_id
-			WHERE d.id = %d",
+		$dashboard = $wpdb->get_row( $wpdb->prepare(
+			"SELECT d.* FROM {$this->table_dashboards} d WHERE d.id = %d",
 			$id
 		) );
+
+		if ( $dashboard ) {
+			$dashboard->users = $wpdb->get_results( $wpdb->prepare(
+				"SELECT du.wp_user_id, u.display_name
+				 FROM {$this->table_dashboard_users} du
+				 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
+				 WHERE du.dashboard_id = %d
+				 ORDER BY du.created_at ASC",
+				$dashboard->id
+			) );
+		}
+
+		return $dashboard;
 	}
 
 	public function get_dashboard_by_user( $wp_user_id ) {
 		global $wpdb;
 
 		return $wpdb->get_row( $wpdb->prepare(
-			"SELECT * FROM {$this->table_dashboards} WHERE wp_user_id = %d",
+			"SELECT d.* FROM {$this->table_dashboards} d
+			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
+			 WHERE du.wp_user_id = %d
+			 LIMIT 1",
+			$wp_user_id
+		) );
+	}
+
+	public function get_dashboards_by_user( $wp_user_id ) {
+		global $wpdb;
+
+		return $wpdb->get_results( $wpdb->prepare(
+			"SELECT d.* FROM {$this->table_dashboards} d
+			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
+			 WHERE du.wp_user_id = %d
+			 ORDER BY d.name ASC",
 			$wp_user_id
 		) );
 	}
@@ -61,10 +101,12 @@ class AdvDash_Dashboard_Manager {
 	public function create_dashboard( $data ) {
 		global $wpdb;
 
+		$wp_user_id = isset( $data['wp_user_id'] ) ? absint( $data['wp_user_id'] ) : 0;
+
 		$result = $wpdb->insert(
 			$this->table_dashboards,
 			array(
-				'wp_user_id'           => absint( $data['wp_user_id'] ),
+				'wp_user_id'           => $wp_user_id,
 				'name'                 => sanitize_text_field( $data['name'] ),
 				'member_workshop_code' => sanitize_text_field( $data['member_workshop_code'] ?? '' ),
 			),
@@ -75,7 +117,14 @@ class AdvDash_Dashboard_Manager {
 			return false;
 		}
 
-		return $this->get_dashboard( $wpdb->insert_id );
+		$dashboard_id = $wpdb->insert_id;
+
+		// Add initial user to junction table.
+		if ( $wp_user_id ) {
+			$this->add_dashboard_user( $dashboard_id, $wp_user_id );
+		}
+
+		return $this->get_dashboard( $dashboard_id );
 	}
 
 	public function update_dashboard( $id, $data ) {
@@ -89,18 +138,13 @@ class AdvDash_Dashboard_Manager {
 			$format[]       = '%s';
 		}
 
-		if ( isset( $data['wp_user_id'] ) ) {
-			$update['wp_user_id'] = absint( $data['wp_user_id'] );
-			$format[]             = '%d';
-		}
-
 		if ( isset( $data['member_workshop_code'] ) ) {
 			$update['member_workshop_code'] = sanitize_text_field( $data['member_workshop_code'] );
 			$format[]                       = '%s';
 		}
 
 		if ( empty( $update ) ) {
-			return false;
+			return true;
 		}
 
 		$result = $wpdb->update(
@@ -119,11 +163,57 @@ class AdvDash_Dashboard_Manager {
 
 		$id = absint( $id );
 
-		// Cascade delete: logs, contacts, then dashboard.
+		// Cascade delete: logs, contacts, users, then dashboard.
 		$wpdb->delete( $this->table_webhook_logs, array( 'dashboard_id' => $id ), array( '%d' ) );
 		$wpdb->delete( $this->table_contacts, array( 'dashboard_id' => $id ), array( '%d' ) );
+		$wpdb->delete( $this->table_dashboard_users, array( 'dashboard_id' => $id ), array( '%d' ) );
 
 		return false !== $wpdb->delete( $this->table_dashboards, array( 'id' => $id ), array( '%d' ) );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Dashboard Users (junction table)
+	 * ---------------------------------------------------------------------- */
+
+	public function add_dashboard_user( $dashboard_id, $wp_user_id ) {
+		global $wpdb;
+
+		return false !== $wpdb->insert(
+			$this->table_dashboard_users,
+			array(
+				'dashboard_id' => absint( $dashboard_id ),
+				'wp_user_id'   => absint( $wp_user_id ),
+			),
+			array( '%d', '%d' )
+		);
+	}
+
+	public function remove_dashboard_user( $dashboard_id, $wp_user_id ) {
+		global $wpdb;
+
+		$result = $wpdb->delete(
+			$this->table_dashboard_users,
+			array(
+				'dashboard_id' => absint( $dashboard_id ),
+				'wp_user_id'   => absint( $wp_user_id ),
+			),
+			array( '%d', '%d' )
+		);
+
+		return false !== $result && $wpdb->rows_affected > 0;
+	}
+
+	public function get_dashboard_users( $dashboard_id ) {
+		global $wpdb;
+
+		return $wpdb->get_results( $wpdb->prepare(
+			"SELECT du.wp_user_id, u.display_name, u.user_login, du.created_at
+			 FROM {$this->table_dashboard_users} du
+			 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
+			 WHERE du.dashboard_id = %d
+			 ORDER BY du.created_at ASC",
+			absint( $dashboard_id )
+		) );
 	}
 
 	/* -------------------------------------------------------------------------

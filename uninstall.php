@@ -7,6 +7,7 @@ global $wpdb;
 
 // Drop tables in dependency order.
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}advdash_webhook_logs" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}advdash_dashboard_users" );
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}advdash_contacts" );
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}advdash_dashboards" );
 

@@ -31,6 +31,18 @@ class AdvDash_Activator {
 			UNIQUE KEY member_workshop_code (member_workshop_code)
 		) {$charset_collate};";
 
+		// Dashboard-to-user junction table (many-to-many).
+		$table_dashboard_users = $wpdb->prefix . 'advdash_dashboard_users';
+		$sql[] = "CREATE TABLE {$table_dashboard_users} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			dashboard_id bigint(20) unsigned NOT NULL,
+			wp_user_id bigint(20) unsigned NOT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY dashboard_user (dashboard_id, wp_user_id),
+			KEY wp_user_id (wp_user_id)
+		) {$charset_collate};";
+
 		// Contacts table.
 		$table_contacts = $wpdb->prefix . 'advdash_contacts';
 		$sql[] = "CREATE TABLE {$table_contacts} (
@@ -113,6 +125,31 @@ class AdvDash_Activator {
 
 		foreach ( $sql as $query ) {
 			dbDelta( $query );
+		}
+
+		// Migration: populate junction table and drop UNIQUE index on wp_user_id.
+		$old_version = get_option( 'advdash_db_version', '0' );
+		if ( version_compare( $old_version, '1.4.0', '<' ) ) {
+			$table_dashboard_users = $wpdb->prefix . 'advdash_dashboard_users';
+
+			// Migrate existing wp_user_id values into the junction table.
+			$wpdb->query(
+				"INSERT IGNORE INTO {$table_dashboard_users} (dashboard_id, wp_user_id)
+				 SELECT id, wp_user_id FROM {$table_dashboards}
+				 WHERE wp_user_id IS NOT NULL AND wp_user_id > 0"
+			);
+
+			// Drop the UNIQUE index on wp_user_id (if it exists) so multiple
+			// dashboards are no longer constrained to unique users.
+			$index_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_dashboards}'
+				   AND INDEX_NAME = 'wp_user_id'"
+			);
+			if ( $index_exists ) {
+				$wpdb->query( "ALTER TABLE {$table_dashboards} DROP INDEX wp_user_id" );
+			}
 		}
 
 		update_option( 'advdash_db_version', ADVDASH_DB_VERSION );

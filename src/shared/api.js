@@ -19,6 +19,22 @@ export const updateDashboard = ( id, data ) =>
 export const deleteDashboard = ( id ) =>
 	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ id }`, method: 'DELETE' } );
 
+export const getDashboardUsers = ( dashboardId ) =>
+	apiFetch( { path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/users` } );
+
+export const addDashboardUser = ( dashboardId, wpUserId ) =>
+	apiFetch( {
+		path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/users`,
+		method: 'POST',
+		data: { wp_user_id: wpUserId },
+	} );
+
+export const removeDashboardUser = ( dashboardId, wpUserId ) =>
+	apiFetch( {
+		path: `/advisor-dashboard/v1/dashboards/${ dashboardId }/users/${ wpUserId }`,
+		method: 'DELETE',
+	} );
+
 export const getSharedWebhook = () =>
 	apiFetch( { path: '/advisor-dashboard/v1/shared-webhook' } );
 

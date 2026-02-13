@@ -348,3 +348,51 @@
 .advdash-admin__log-error {
 	color: #8a1116;
 }
+
+/* -------------------------------------------------------------------------
+ * Dashboard User Management
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__users-section {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #e0e0e0;
+}
+
+.advdash-admin__users-section h4 {
+	margin: 0 0 8px;
+}
+
+.advdash-admin__users-empty {
+	color: #646970;
+	font-style: italic;
+	margin: 0 0 12px;
+}
+
+.advdash-admin__user-list {
+	margin: 0 0 12px;
+	padding: 0;
+	list-style: none;
+}
+
+.advdash-admin__user-list li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 10px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	margin-bottom: 4px;
+}
+
+.advdash-admin__add-user-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+}
+
+.advdash-admin__add-user-row .components-base-control {
+	flex: 1;
+	margin-bottom: 0;
+}
