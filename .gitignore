@@ -1,6 +1,10 @@
 node_modules/
 build/
 dist/
+advisor-dashboard/
 *.zip
 .DS_Store
 nul
+.claude/
+\#\ Tasks.md
+test-webhook.ps1
