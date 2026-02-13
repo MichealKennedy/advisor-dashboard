@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'ADVDASH_VERSION', '1.0.0' );
-define( 'ADVDASH_DB_VERSION', '1.1.0' );
+define( 'ADVDASH_DB_VERSION', '1.2.0' );
 define( 'ADVDASH_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ADVDASH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -60,3 +60,16 @@ add_action( 'init', function () {
 // Register admin menu.
 add_action( 'admin_menu', array( 'AdvDash_Admin_Page', 'register_menu' ) );
 add_action( 'admin_enqueue_scripts', array( 'AdvDash_Admin_Page', 'enqueue_assets' ) );
+
+// Daily webhook log cleanup.
+add_action( 'advdash_daily_log_cleanup', function () {
+	$retention_days = (int) get_option( 'advdash_webhook_log_retention_days', 90 );
+	$manager = new AdvDash_Dashboard_Manager();
+	$manager->delete_old_webhook_logs( $retention_days );
+} );
+
+add_action( 'plugins_loaded', function () {
+	if ( ! wp_next_scheduled( 'advdash_daily_log_cleanup' ) ) {
+		wp_schedule_event( time(), 'daily', 'advdash_daily_log_cleanup' );
+	}
+}, 20 );

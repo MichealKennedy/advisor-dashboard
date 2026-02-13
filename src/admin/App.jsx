@@ -3,6 +3,7 @@ import { Button, Modal } from '@wordpress/components';
 import DashboardList from './components/DashboardList';
 import DashboardEditor from './components/DashboardEditor';
 import TestContactSender from './components/TestContactSender';
+import WebhookLogViewer from './components/WebhookLogViewer';
 
 function HelpDialog( { onClose } ) {
 	return (
@@ -100,6 +101,9 @@ export default function App() {
 			<div className="advdash-admin__title-bar">
 				<h1>Advisor Dashboards</h1>
 				<div className="advdash-admin__title-actions">
+					<Button variant="secondary" onClick={ () => setView( 'logs' ) }>
+						Webhook Log
+					</Button>
 					<Button variant="secondary" onClick={ () => setView( 'test' ) }>
 						Test Dashboard
 					</Button>
@@ -117,6 +121,9 @@ export default function App() {
 			) }
 			{ view === 'test' && (
 				<TestContactSender onBack={ handleBack } />
+			) }
+			{ view === 'logs' && (
+				<WebhookLogViewer onBack={ handleBack } />
 			) }
 		</div>
 	);

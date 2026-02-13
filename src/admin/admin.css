@@ -170,3 +170,181 @@
 	border: 1px solid #d63638;
 	color: #8a1116;
 }
+
+/* -------------------------------------------------------------------------
+ * Webhook Log
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__log-section {
+	max-width: 1200px;
+}
+
+.advdash-admin__log-header {
+	margin-bottom: 20px;
+}
+
+.advdash-admin__log-header h2 {
+	margin-top: 8px;
+}
+
+.advdash-admin__log-settings {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 10px 16px;
+	margin-bottom: 16px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.advdash-admin__log-retention {
+	color: #646970;
+	font-size: 13px;
+}
+
+.advdash-admin__log-filters {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.advdash-admin__log-filters .components-select-control {
+	min-width: 160px;
+}
+
+.advdash-admin__log-date-range {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.advdash-admin__log-date-range input[type="date"] {
+	padding: 6px 10px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font-size: 13px;
+	line-height: 2;
+}
+
+.advdash-admin__log-date-range input[type="date"]:focus {
+	outline: none;
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+.advdash-admin__log-date-sep {
+	color: #646970;
+	font-size: 13px;
+}
+
+.advdash-admin__log-search {
+	padding: 6px 10px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font-size: 13px;
+	line-height: 2;
+	min-width: 180px;
+}
+
+.advdash-admin__log-search:focus {
+	outline: none;
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+.advdash-admin__log-table .advdash-admin__log-row {
+	cursor: pointer;
+}
+
+.advdash-admin__log-table .advdash-admin__log-row:hover td {
+	background: #f0f6fc;
+}
+
+.advdash-admin__log-col--datetime {
+	width: 160px;
+}
+
+.advdash-admin__log-col--dashboard {
+	width: 140px;
+}
+
+.advdash-admin__log-col--status {
+	width: 70px;
+}
+
+.advdash-admin__log-col--error {
+	width: 140px;
+}
+
+.advdash-admin__log-status {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.advdash-admin__log-status--success {
+	background: #edfaef;
+	color: #1e4620;
+}
+
+.advdash-admin__log-status--error {
+	background: #fcf0f1;
+	color: #8a1116;
+}
+
+.advdash-admin__log-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 12px;
+	font-size: 13px;
+	color: #646970;
+}
+
+.advdash-admin__log-pagination-buttons {
+	display: flex;
+	gap: 8px;
+}
+
+/* Log detail modal */
+
+.advdash-admin__log-detail h3 {
+	margin-top: 20px;
+	margin-bottom: 8px;
+}
+
+.advdash-admin__log-meta-table {
+	margin-bottom: 0;
+}
+
+.advdash-admin__log-meta-table th {
+	width: 120px;
+	font-weight: 600;
+}
+
+.advdash-admin__log-json {
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 12px;
+	overflow-x: auto;
+	max-height: 300px;
+	overflow-y: auto;
+	font-family: Consolas, Monaco, "Courier New", monospace;
+	font-size: 12px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	margin: 0;
+}
+
+.advdash-admin__log-error {
+	color: #8a1116;
+}

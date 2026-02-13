@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AdvDash_Webhook_Handler {
 
 	private $manager;
+	private $current_webhook = null;
 
 	private static $valid_tabs = array(
 		'current_registrations',
@@ -79,10 +80,26 @@ class AdvDash_Webhook_Handler {
 	}
 
 	public function handle_webhook( WP_REST_Request $request ) {
+		$raw_body    = $request->get_body();
+		$webhook_key = $request->get_param( 'webhook_key' );
+		$ip_address  = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
+
+		$this->current_webhook = null;
+		$result = $this->process_webhook( $request );
+
+		if ( get_option( 'advdash_webhook_logging', '0' ) === '1' ) {
+			$this->log_result( $webhook_key, $raw_body, $ip_address, $result );
+		}
+
+		return $result;
+	}
+
+	private function process_webhook( WP_REST_Request $request ) {
 		$webhook_key = $request->get_param( 'webhook_key' );
 
 		// 1. Look up webhook key.
 		$webhook = $this->manager->get_webhook_by_key( $webhook_key );
+		$this->current_webhook = $webhook;
 
 		if ( ! $webhook ) {
 			error_log( '[AdvDash] Webhook 404: invalid key attempted.' );
@@ -337,5 +354,50 @@ class AdvDash_Webhook_Handler {
 			return '%d';
 		}
 		return '%s';
+	}
+
+	private function log_result( $webhook_key, $raw_body, $ip_address, $result ) {
+		$dashboard_id = $this->current_webhook ? (int) $this->current_webhook->dashboard_id : null;
+
+		// Parse tab/action/contact_id from raw body for indexable columns.
+		$body_data         = json_decode( $raw_body, true );
+		$parsed_tab        = null;
+		$parsed_action     = null;
+		$parsed_contact_id = null;
+		if ( is_array( $body_data ) ) {
+			$parsed_tab        = isset( $body_data['tab'] ) ? $body_data['tab'] : null;
+			$parsed_action     = isset( $body_data['_action'] ) ? $body_data['_action'] : 'add';
+			$parsed_contact_id = isset( $body_data['contact_id'] ) ? $body_data['contact_id'] : ( isset( $body_data['contactId'] ) ? $body_data['contactId'] : null );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			$error_data    = $result->get_error_data();
+			$status_code   = isset( $error_data['status'] ) ? (int) $error_data['status'] : 500;
+			$error_code    = $result->get_error_code();
+			$error_message = $result->get_error_message();
+			$response_body = wp_json_encode( array(
+				'code'    => $error_code,
+				'message' => $error_message,
+			) );
+		} else {
+			$status_code   = $result->get_status();
+			$error_code    = null;
+			$error_message = null;
+			$response_body = wp_json_encode( $result->get_data() );
+		}
+
+		$this->manager->create_webhook_log( array(
+			'dashboard_id'      => $dashboard_id,
+			'webhook_key'       => $webhook_key,
+			'request_body'      => $raw_body,
+			'parsed_tab'        => $parsed_tab,
+			'parsed_action'     => $parsed_action,
+			'parsed_contact_id' => $parsed_contact_id,
+			'status_code'       => $status_code,
+			'error_code'        => $error_code,
+			'error_message'     => $error_message,
+			'response_body'     => $response_body,
+			'ip_address'        => $ip_address,
+		) );
 	}
 }

@@ -90,6 +90,70 @@ class AdvDash_Rest_API {
 			),
 		) );
 
+		// ----- Admin: Webhook logs -----
+		register_rest_route( $this->namespace, '/webhook-logs', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_webhook_logs' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'page'          => array( 'default' => 1, 'type' => 'integer' ),
+					'per_page'      => array( 'default' => 50, 'type' => 'integer' ),
+					'orderby'       => array( 'default' => 'created_at', 'type' => 'string' ),
+					'order'         => array( 'default' => 'desc', 'type' => 'string' ),
+					'dashboard_id'  => array( 'default' => '', 'type' => 'string' ),
+					'status_filter' => array( 'default' => '', 'type' => 'string' ),
+					'date_from'     => array( 'default' => '', 'type' => 'string' ),
+					'date_to'       => array( 'default' => '', 'type' => 'string' ),
+					'search'        => array( 'default' => '', 'type' => 'string' ),
+				),
+			),
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'clear_webhook_logs' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+				),
+			),
+		) );
+
+		register_rest_route( $this->namespace, '/webhook-logs/(?P<log_id>\d+)', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_webhook_log_detail' ),
+			'permission_callback' => array( $this, 'check_admin' ),
+			'args'                => array(
+				'log_id' => array( 'required' => true, 'type' => 'integer' ),
+			),
+		) );
+
+		register_rest_route( $this->namespace, '/webhook-logs/filters', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_webhook_log_filters' ),
+			'permission_callback' => array( $this, 'check_admin' ),
+			'args'                => array(
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+			),
+		) );
+
+		// ----- Admin: Webhook logging settings -----
+		register_rest_route( $this->namespace, '/settings/webhook-logging', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_webhook_logging_settings' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+			),
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( $this, 'set_webhook_logging_settings' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'enabled'        => array( 'required' => true, 'type' => 'boolean' ),
+					'retention_days' => array( 'type' => 'integer', 'required' => false ),
+				),
+			),
+		) );
+
 		// ----- Frontend: My Dashboard (logged-in user) -----
 		register_rest_route( $this->namespace, '/my-dashboard', array(
 			'methods'             => 'GET',
@@ -551,5 +615,75 @@ class AdvDash_Rest_API {
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'deleted_id' => $contact_id ), 200 );
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Admin: Webhook Logs
+	 * ---------------------------------------------------------------------- */
+
+	public function get_webhook_logs( WP_REST_Request $request ) {
+		$result = $this->manager->get_webhook_logs( array(
+			'dashboard_id'  => $request->get_param( 'dashboard_id' ),
+			'page'          => $request->get_param( 'page' ),
+			'per_page'      => $request->get_param( 'per_page' ),
+			'orderby'       => $request->get_param( 'orderby' ),
+			'order'         => $request->get_param( 'order' ),
+			'status_filter' => $request->get_param( 'status_filter' ),
+			'date_from'     => $request->get_param( 'date_from' ),
+			'date_to'       => $request->get_param( 'date_to' ),
+			'search'        => $request->get_param( 'search' ),
+		) );
+
+		$response = new WP_REST_Response( $result['data'], 200 );
+		$response->header( 'X-WP-Total', $result['total'] );
+		$response->header( 'X-WP-TotalPages', $result['total_pages'] );
+
+		return $response;
+	}
+
+	public function get_webhook_log_detail( WP_REST_Request $request ) {
+		$log = $this->manager->get_webhook_log( (int) $request->get_param( 'log_id' ) );
+
+		if ( ! $log ) {
+			return new WP_Error( 'not_found', 'Log entry not found.', array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( $log, 200 );
+	}
+
+	public function get_webhook_log_filters( WP_REST_Request $request ) {
+		$dashboard_id = $request->get_param( 'dashboard_id' );
+		$filters = $this->manager->get_webhook_log_filters( $dashboard_id ? (int) $dashboard_id : null );
+
+		return new WP_REST_Response( $filters, 200 );
+	}
+
+	public function clear_webhook_logs( WP_REST_Request $request ) {
+		$dashboard_id = $request->get_param( 'dashboard_id' );
+		$this->manager->clear_webhook_logs( $dashboard_id ? (int) $dashboard_id : null );
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	public function get_webhook_logging_settings( WP_REST_Request $request ) {
+		return new WP_REST_Response( array(
+			'enabled'        => get_option( 'advdash_webhook_logging', '0' ) === '1',
+			'retention_days' => (int) get_option( 'advdash_webhook_log_retention_days', 90 ),
+		), 200 );
+	}
+
+	public function set_webhook_logging_settings( WP_REST_Request $request ) {
+		$enabled = $request->get_param( 'enabled' );
+		update_option( 'advdash_webhook_logging', $enabled ? '1' : '0' );
+
+		if ( $request->has_param( 'retention_days' ) ) {
+			$days = max( 7, min( 365, (int) $request->get_param( 'retention_days' ) ) );
+			update_option( 'advdash_webhook_log_retention_days', $days );
+		}
+
+		return new WP_REST_Response( array(
+			'enabled'        => (bool) $enabled,
+			'retention_days' => (int) get_option( 'advdash_webhook_log_retention_days', 90 ),
+		), 200 );
 	}
 }

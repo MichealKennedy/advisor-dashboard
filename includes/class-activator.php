@@ -98,6 +98,29 @@ class AdvDash_Activator {
 			UNIQUE KEY dashboard_tab_contact (dashboard_id, tab, contact_id)
 		) {$charset_collate};";
 
+		// Webhook logs table.
+		$table_webhook_logs = $wpdb->prefix . 'advdash_webhook_logs';
+		$sql[] = "CREATE TABLE {$table_webhook_logs} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			dashboard_id bigint(20) unsigned DEFAULT NULL,
+			webhook_key varchar(64) NOT NULL,
+			request_body longtext DEFAULT NULL,
+			parsed_tab varchar(50) DEFAULT NULL,
+			parsed_action varchar(20) DEFAULT NULL,
+			parsed_contact_id varchar(100) DEFAULT NULL,
+			status_code smallint(5) unsigned NOT NULL DEFAULT 200,
+			error_code varchar(50) DEFAULT NULL,
+			error_message text DEFAULT NULL,
+			response_body text DEFAULT NULL,
+			ip_address varchar(45) DEFAULT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY dashboard_id (dashboard_id),
+			KEY status_code (status_code),
+			KEY error_code (error_code),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 		foreach ( $sql as $query ) {

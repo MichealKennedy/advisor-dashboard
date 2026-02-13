@@ -8,12 +8,14 @@ class AdvDash_Dashboard_Manager {
 	private $table_dashboards;
 	private $table_webhooks;
 	private $table_contacts;
+	private $table_webhook_logs;
 
 	public function __construct() {
 		global $wpdb;
-		$this->table_dashboards = $wpdb->prefix . 'advdash_dashboards';
-		$this->table_webhooks   = $wpdb->prefix . 'advdash_webhooks';
-		$this->table_contacts   = $wpdb->prefix . 'advdash_contacts';
+		$this->table_dashboards   = $wpdb->prefix . 'advdash_dashboards';
+		$this->table_webhooks     = $wpdb->prefix . 'advdash_webhooks';
+		$this->table_contacts     = $wpdb->prefix . 'advdash_contacts';
+		$this->table_webhook_logs = $wpdb->prefix . 'advdash_webhook_logs';
 	}
 
 	/* -------------------------------------------------------------------------
@@ -121,7 +123,8 @@ class AdvDash_Dashboard_Manager {
 
 		$id = absint( $id );
 
-		// Cascade delete: contacts, webhook, then dashboard.
+		// Cascade delete: logs, contacts, webhook, then dashboard.
+		$wpdb->delete( $this->table_webhook_logs, array( 'dashboard_id' => $id ), array( '%d' ) );
 		$wpdb->delete( $this->table_contacts, array( 'dashboard_id' => $id ), array( '%d' ) );
 		$wpdb->delete( $this->table_webhooks, array( 'dashboard_id' => $id ), array( '%d' ) );
 
@@ -473,5 +476,188 @@ class AdvDash_Dashboard_Manager {
 		);
 
 		return false !== $result && $wpdb->rows_affected > 0;
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Webhook Logs
+	 * ---------------------------------------------------------------------- */
+
+	public function create_webhook_log( $data ) {
+		global $wpdb;
+
+		return $wpdb->insert(
+			$this->table_webhook_logs,
+			array(
+				'dashboard_id'      => $data['dashboard_id'],
+				'webhook_key'       => sanitize_text_field( $data['webhook_key'] ),
+				'request_body'      => $data['request_body'],
+				'parsed_tab'        => isset( $data['parsed_tab'] ) ? sanitize_text_field( $data['parsed_tab'] ) : null,
+				'parsed_action'     => isset( $data['parsed_action'] ) ? sanitize_text_field( $data['parsed_action'] ) : null,
+				'parsed_contact_id' => isset( $data['parsed_contact_id'] ) ? sanitize_text_field( $data['parsed_contact_id'] ) : null,
+				'status_code'       => (int) $data['status_code'],
+				'error_code'        => isset( $data['error_code'] ) ? sanitize_text_field( $data['error_code'] ) : null,
+				'error_message'     => isset( $data['error_message'] ) ? sanitize_text_field( $data['error_message'] ) : null,
+				'response_body'     => isset( $data['response_body'] ) ? $data['response_body'] : null,
+				'ip_address'        => sanitize_text_field( $data['ip_address'] ?? '' ),
+			),
+			array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
+		);
+	}
+
+	private static $allowed_log_orderby = array(
+		'created_at', 'status_code', 'error_code', 'parsed_tab', 'parsed_action',
+	);
+
+	public function get_webhook_logs( $args = array() ) {
+		global $wpdb;
+
+		$defaults = array(
+			'dashboard_id'  => '',
+			'page'          => 1,
+			'per_page'      => 50,
+			'orderby'       => 'created_at',
+			'order'         => 'desc',
+			'status_filter' => '',
+			'date_from'     => '',
+			'date_to'       => '',
+			'search'        => '',
+		);
+
+		$args     = wp_parse_args( $args, $defaults );
+		$page     = max( 1, absint( $args['page'] ) );
+		$per_page = min( 200, max( 1, absint( $args['per_page'] ) ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$orderby = in_array( $args['orderby'], self::$allowed_log_orderby, true )
+			? $args['orderby'] : 'created_at';
+		$order = strtoupper( $args['order'] ) === 'ASC' ? 'ASC' : 'DESC';
+
+		$where_parts  = array( '1=1' );
+		$where_values = array();
+
+		if ( ! empty( $args['dashboard_id'] ) ) {
+			$where_parts[]  = 'l.dashboard_id = %d';
+			$where_values[] = absint( $args['dashboard_id'] );
+		}
+
+		if ( $args['status_filter'] === 'success' ) {
+			$where_parts[] = 'l.error_code IS NULL';
+		} elseif ( $args['status_filter'] === 'error' ) {
+			$where_parts[] = 'l.error_code IS NOT NULL';
+		} elseif ( ! empty( $args['status_filter'] ) ) {
+			$where_parts[]  = 'l.error_code = %s';
+			$where_values[] = sanitize_text_field( $args['status_filter'] );
+		}
+
+		if ( ! empty( $args['date_from'] ) ) {
+			$where_parts[]  = 'l.created_at >= %s';
+			$where_values[] = sanitize_text_field( $args['date_from'] ) . ' 00:00:00';
+		}
+		if ( ! empty( $args['date_to'] ) ) {
+			$where_parts[]  = 'l.created_at <= %s';
+			$where_values[] = sanitize_text_field( $args['date_to'] ) . ' 23:59:59';
+		}
+
+		if ( ! empty( $args['search'] ) ) {
+			$like           = '%' . $wpdb->esc_like( sanitize_text_field( $args['search'] ) ) . '%';
+			$where_parts[]  = '( l.error_message LIKE %s OR l.parsed_contact_id LIKE %s OR l.ip_address LIKE %s )';
+			$where_values[] = $like;
+			$where_values[] = $like;
+			$where_values[] = $like;
+		}
+
+		$where_clause = implode( ' AND ', $where_parts );
+
+		// Build count query.
+		$count_sql = "SELECT COUNT(*) FROM {$this->table_webhook_logs} l WHERE {$where_clause}";
+		if ( ! empty( $where_values ) ) {
+			$total = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, ...$where_values ) );
+		} else {
+			$total = (int) $wpdb->get_var( $count_sql );
+		}
+
+		// Fetch rows (omit request_body and response_body for performance).
+		$select_sql = "SELECT l.id, l.dashboard_id, l.webhook_key, l.parsed_tab, l.parsed_action,
+				l.parsed_contact_id, l.status_code, l.error_code, l.error_message,
+				l.ip_address, l.created_at,
+				d.name AS dashboard_name
+			FROM {$this->table_webhook_logs} l
+			LEFT JOIN {$this->table_dashboards} d ON d.id = l.dashboard_id
+			WHERE {$where_clause}
+			ORDER BY l.{$orderby} {$order}
+			LIMIT %d OFFSET %d";
+
+		$query_values = array_merge( $where_values, array( $per_page, $offset ) );
+		$rows = $wpdb->get_results( $wpdb->prepare( $select_sql, ...$query_values ) );
+
+		return array(
+			'data'        => $rows ? $rows : array(),
+			'total'       => $total,
+			'total_pages' => (int) ceil( $total / $per_page ),
+		);
+	}
+
+	public function get_webhook_log( $log_id ) {
+		global $wpdb;
+
+		return $wpdb->get_row( $wpdb->prepare(
+			"SELECT l.*, d.name AS dashboard_name
+			FROM {$this->table_webhook_logs} l
+			LEFT JOIN {$this->table_dashboards} d ON d.id = l.dashboard_id
+			WHERE l.id = %d",
+			absint( $log_id )
+		) );
+	}
+
+	public function get_webhook_log_filters( $dashboard_id = null ) {
+		global $wpdb;
+
+		$where = '';
+		$values = array();
+
+		if ( $dashboard_id ) {
+			$where  = 'WHERE dashboard_id = %d AND error_code IS NOT NULL';
+			$values = array( absint( $dashboard_id ) );
+		} else {
+			$where = 'WHERE error_code IS NOT NULL';
+		}
+
+		$sql = "SELECT error_code, COUNT(*) AS count
+			FROM {$this->table_webhook_logs}
+			{$where}
+			GROUP BY error_code
+			ORDER BY count DESC";
+
+		if ( ! empty( $values ) ) {
+			$results = $wpdb->get_results( $wpdb->prepare( $sql, ...$values ) );
+		} else {
+			$results = $wpdb->get_results( $sql );
+		}
+
+		return $results ? $results : array();
+	}
+
+	public function delete_old_webhook_logs( $days = 90 ) {
+		global $wpdb;
+
+		return $wpdb->query( $wpdb->prepare(
+			"DELETE FROM {$this->table_webhook_logs}
+			WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+			absint( $days )
+		) );
+	}
+
+	public function clear_webhook_logs( $dashboard_id = null ) {
+		global $wpdb;
+
+		if ( $dashboard_id ) {
+			return $wpdb->delete(
+				$this->table_webhook_logs,
+				array( 'dashboard_id' => absint( $dashboard_id ) ),
+				array( '%d' )
+			);
+		}
+
+		return $wpdb->query( "TRUNCATE TABLE {$this->table_webhook_logs}" );
 	}
 }
