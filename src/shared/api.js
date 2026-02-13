@@ -83,6 +83,17 @@ export const getContactSummary = ( params ) => {
 	return apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/contact-summary?${ query.toString() }` } );
 };
 
+export const saveColumnPrefs = ( prefs ) =>
+	apiFetch( { path: '/advisor-dashboard/v1/my-dashboard/column-prefs', method: 'PUT', data: { prefs } } );
+
+export const updateContactNotes = ( contactId, data, dashboardId ) => {
+	let path = `/advisor-dashboard/v1/my-dashboard/contacts/${ contactId }`;
+	if ( dashboardId ) {
+		path += `?dashboard_id=${ dashboardId }`;
+	}
+	return apiFetch( { path, method: 'PATCH', data } );
+};
+
 export const deleteContact = ( contactId, dashboardId ) => {
 	let path = `/advisor-dashboard/v1/my-dashboard/contacts/${ contactId }`;
 	if ( dashboardId ) {

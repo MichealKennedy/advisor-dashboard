@@ -18,6 +18,7 @@ export const TAB_CONFIG = [
 		key: 'current_registrations',
 		label: 'Current Registrations',
 		dateFilterField: 'workshop_date',
+		pinnedColumns: [ 'first_name', 'last_name' ],
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -35,6 +36,7 @@ export const TAB_CONFIG = [
 			{ key: 'registration_form_completed', label: 'Form Completed', type: 'date' },
 			{ key: 'member_workshop_code', label: 'Workshop Code' },
 			{ key: 'status', label: 'Status' },
+			{ key: 'advisor_status', label: 'Advisor Status' },
 		],
 		defaultSort: { key: 'workshop_date', direction: 'desc' },
 	},
@@ -42,6 +44,7 @@ export const TAB_CONFIG = [
 		key: 'attended_report',
 		label: 'Attended Workshop & Requested Report',
 		dateFilterField: 'workshop_date',
+		pinnedColumns: [ 'first_name', 'last_name' ],
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -59,6 +62,7 @@ export const TAB_CONFIG = [
 			{ key: 'meet_for_report', label: 'Meet for Report' },
 			{ key: 'rate_material', label: 'Rate Material' },
 			{ key: 'additional_comments', label: 'Comments' },
+			{ key: 'advisor_status', label: 'Advisor Status' },
 		],
 		defaultSort: { key: 'workshop_date', direction: 'desc' },
 	},
@@ -66,6 +70,7 @@ export const TAB_CONFIG = [
 		key: 'attended_other',
 		label: "Attended Other Members' Workshop",
 		dateFilterField: 'workshop_date',
+		pinnedColumns: [ 'first_name', 'last_name' ],
 		columns: [
 			{ key: 'workshop_date', label: 'Workshop Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -83,6 +88,7 @@ export const TAB_CONFIG = [
 			{ key: 'meet_for_report', label: 'Meet for Report' },
 			{ key: 'rate_material', label: 'Rate Material' },
 			{ key: 'additional_comments', label: 'Comments' },
+			{ key: 'advisor_status', label: 'Advisor Status' },
 		],
 		defaultSort: { key: 'workshop_date', direction: 'desc' },
 	},
@@ -90,6 +96,7 @@ export const TAB_CONFIG = [
 		key: 'fed_request',
 		label: 'Fed Employee Requested Advisor Report',
 		dateFilterField: 'date_of_lead_request',
+		pinnedColumns: [ 'first_name', 'last_name' ],
 		columns: [
 			{ key: 'date_of_lead_request', label: 'Lead Request Date', type: 'date' },
 			{ key: 'first_name', label: 'First Name' },
@@ -108,9 +115,19 @@ export const TAB_CONFIG = [
 			{ key: 'special_provisions', label: 'Special Provisions' },
 			{ key: 'time_frame_for_retirement', label: 'Retirement Timeframe' },
 			{ key: 'meet_for_report', label: 'Meet for Report' },
+			{ key: 'advisor_status', label: 'Advisor Status' },
 		],
 		defaultSort: { key: 'date_of_lead_request', direction: 'desc' },
 	},
 ];
 
 export const VALID_TABS = TAB_CONFIG.map( ( t ) => t.key );
+
+export const ADVISOR_STATUSES = [
+	{ value: '', label: 'No Status' },
+	{ value: 'new', label: 'New' },
+	{ value: 'contacted', label: 'Contacted' },
+	{ value: 'scheduled', label: 'Scheduled' },
+	{ value: 'completed', label: 'Completed' },
+	{ value: 'not_interested', label: 'Not Interested' },
+];

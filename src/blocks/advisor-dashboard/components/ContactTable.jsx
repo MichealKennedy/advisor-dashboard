@@ -4,10 +4,12 @@ import {
 	getCoreRowModel,
 	flexRender,
 } from '@tanstack/react-table';
-import { getContacts, getFilterDates, getContactSummary, deleteContact } from '../../../shared/api';
+import { getContacts, getFilterDates, getContactSummary, deleteContact, saveColumnPrefs } from '../../../shared/api';
 import { formatDate } from '../../../shared/utils';
+import ColumnToggle from './ColumnToggle';
+import ContactDetailPanel from './ContactDetailPanel';
 
-export default function ContactTable( { tab, columns, defaultSort, dateFilterField, dashboardId, isAdmin } ) {
+export default function ContactTable( { tab, columns, pinnedColumns, defaultSort, dateFilterField, dashboardId, isAdmin } ) {
 	// Server data state.
 	const [ data, setData ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
@@ -26,6 +28,63 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 	const [ search, setSearch ] = useState( '' );
 	const [ debouncedSearch, setDebouncedSearch ] = useState( '' );
 	const [ isExporting, setIsExporting ] = useState( false );
+	const [ selectedContact, setSelectedContact ] = useState( null );
+
+	// Column visibility state (persisted to server via user meta, cached in localStorage).
+	const colVisKey = `advdash_colvis_${ tab }`;
+	const [ columnVisibility, setColumnVisibility ] = useState( () => {
+		// Prefer server-provided prefs, fall back to localStorage cache.
+		const serverPrefs = window.advdashFrontend?.columnPrefs?.[ tab ];
+		if ( serverPrefs && typeof serverPrefs === 'object' ) {
+			return serverPrefs;
+		}
+		try {
+			const saved = localStorage.getItem( colVisKey );
+			return saved ? JSON.parse( saved ) : {};
+		} catch {
+			return {};
+		}
+	} );
+
+	// Debounce save to server to avoid rapid API calls while toggling columns.
+	const saveTimerRef = useCallback( () => {
+		let timer = null;
+		return ( allPrefs ) => {
+			clearTimeout( timer );
+			timer = setTimeout( () => {
+				saveColumnPrefs( allPrefs ).catch( () => {} );
+			}, 1000 );
+		};
+	}, [] );
+	const debouncedSave = useMemo( saveTimerRef, [ saveTimerRef ] );
+
+	useEffect( () => {
+		// Cache in localStorage for fast reload.
+		try {
+			localStorage.setItem( colVisKey, JSON.stringify( columnVisibility ) );
+		} catch {
+			// Ignore storage errors.
+		}
+
+		// Build full prefs object from all tabs' localStorage and save to server.
+		const allPrefs = {};
+		const tabKeys = [ 'current_registrations', 'attended_report', 'attended_other', 'fed_request' ];
+		tabKeys.forEach( ( t ) => {
+			if ( t === tab ) {
+				allPrefs[ t ] = columnVisibility;
+			} else {
+				try {
+					const cached = localStorage.getItem( `advdash_colvis_${ t }` );
+					if ( cached ) {
+						allPrefs[ t ] = JSON.parse( cached );
+					}
+				} catch {
+					// Skip.
+				}
+			}
+		} );
+		debouncedSave( allPrefs );
+	}, [ columnVisibility, colVisKey, tab, debouncedSave ] );
 
 	// Date filter state.
 	const [ dateFilter, setDateFilter ] = useState( '' );
@@ -93,15 +152,10 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 		fetchData();
 	}, [ fetchData ] );
 
-	// Summary stats (current_registrations tab only).
+	// Summary stats.
 	const [ summary, setSummary ] = useState( null );
-	const isCurrentReg = tab === 'current_registrations';
 
 	useEffect( () => {
-		if ( ! isCurrentReg ) {
-			setSummary( null );
-			return;
-		}
 		const params = { tab, search: debouncedSearch };
 		if ( dashboardId ) {
 			params.dashboard_id = dashboardId;
@@ -113,7 +167,7 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 		getContactSummary( params )
 			.then( setSummary )
 			.catch( () => setSummary( null ) );
-	}, [ isCurrentReg, tab, debouncedSearch, dateFilter, dateFilterField, dashboardId ] );
+	}, [ tab, debouncedSearch, dateFilter, dateFilterField, dashboardId ] );
 
 	// Format a breakdown array into "Option (count), ..." display.
 	const formatBreakdown = ( items ) => {
@@ -159,7 +213,10 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 					cell: ( info ) => (
 						<button
 							className="advdash__delete-btn"
-							onClick={ () => handleDelete( info.row.original.id ) }
+							onClick={ ( e ) => {
+								e.stopPropagation();
+								handleDelete( info.row.original.id );
+							} }
 							title="Delete contact"
 						>
 							&times;
@@ -177,7 +234,8 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 	const table = useReactTable( {
 		data,
 		columns: tableColumns,
-		state: { sorting, pagination },
+		state: { sorting, pagination, columnVisibility },
+		onColumnVisibilityChange: setColumnVisibility,
 		onSortingChange: ( updater ) => {
 			setSorting( updater );
 			// Reset to first page when sort changes.
@@ -213,9 +271,10 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 			}
 			const result = await getContacts( exportParams );
 
-			const headers = columns.map( ( c ) => c.label );
+			const visibleCols = columns.filter( ( c ) => columnVisibility[ c.key ] !== false );
+			const headers = visibleCols.map( ( c ) => c.label );
 			const rows = result.data.map( ( row ) =>
-				columns.map( ( c ) => {
+				visibleCols.map( ( c ) => {
 					let val = row[ c.key ] || '';
 					if ( c.type === 'date' ) {
 						val = formatDate( val );
@@ -283,6 +342,12 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 						) ) }
 					</select>
 				) }
+				<ColumnToggle
+					columns={ columns }
+					pinnedColumns={ pinnedColumns || [] }
+					columnVisibility={ columnVisibility }
+					onColumnVisibilityChange={ setColumnVisibility }
+				/>
 				<button
 					className="advdash__export-btn"
 					onClick={ handleExport }
@@ -292,7 +357,7 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 				</button>
 			</div>
 
-			{ isCurrentReg && summary && (
+			{ summary && tab === 'current_registrations' && (
 				<div className="advdash__summary-bar">
 					<div className="advdash__summary-line">
 						<span className="advdash__summary-label">Registrants: { summary.total_registrants }</span>
@@ -307,6 +372,38 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 						<span>Food: { formatBreakdown( summary.food_spouse_breakdown ) }</span>
 						<span className="advdash__summary-sep">&mdash;</span>
 						<span>Side: { formatBreakdown( summary.side_spouse_breakdown ) }</span>
+					</div>
+				</div>
+			) }
+
+			{ summary && ( tab === 'attended_report' || tab === 'attended_other' ) && (
+				<div className="advdash__summary-bar">
+					<div className="advdash__summary-line">
+						<span className="advdash__summary-label">Total Contacts: { summary.total }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Meet for Report: { formatBreakdown( summary.meet_for_report_breakdown ) }</span>
+					</div>
+					<div className="advdash__summary-line">
+						<span>Retirement System: { formatBreakdown( summary.retirement_system_breakdown ) }</span>
+					</div>
+					<div className="advdash__summary-line">
+						<span>Rating: { formatBreakdown( summary.rate_material_breakdown ) }</span>
+					</div>
+				</div>
+			) }
+
+			{ summary && tab === 'fed_request' && (
+				<div className="advdash__summary-bar">
+					<div className="advdash__summary-line">
+						<span className="advdash__summary-label">Total Contacts: { summary.total }</span>
+						<span className="advdash__summary-sep">&mdash;</span>
+						<span>Meet for Report: { formatBreakdown( summary.meet_for_report_breakdown ) }</span>
+					</div>
+					<div className="advdash__summary-line">
+						<span>Retirement System: { formatBreakdown( summary.retirement_system_breakdown ) }</span>
+					</div>
+					<div className="advdash__summary-line">
+						<span>Retirement Timeframe: { formatBreakdown( summary.time_frame_for_retirement_breakdown ) }</span>
 					</div>
 				</div>
 			) }
@@ -365,7 +462,11 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 							</thead>
 							<tbody>
 								{ table.getRowModel().rows.map( ( row ) => (
-									<tr key={ row.id } className="advdash__tr">
+									<tr
+										key={ row.id }
+										className={ `advdash__tr${ selectedContact?.id === row.original.id ? ' advdash__tr--selected' : '' }` }
+										onClick={ () => setSelectedContact( row.original ) }
+									>
 										{ row.getVisibleCells().map( ( cell ) => (
 											<td
 												key={ cell.id }
@@ -404,6 +505,19 @@ export default function ContactTable( { tab, columns, defaultSort, dateFilterFie
 						</button>
 					</div>
 				</>
+			) }
+
+			{ selectedContact && (
+				<ContactDetailPanel
+					contact={ selectedContact }
+					columns={ columns }
+					dashboardId={ dashboardId }
+					onClose={ () => setSelectedContact( null ) }
+					onSaved={ () => {
+						fetchData();
+						setSelectedContact( null );
+					} }
+				/>
 			) }
 		</div>
 	);

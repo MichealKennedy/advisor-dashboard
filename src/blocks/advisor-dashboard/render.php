@@ -61,6 +61,11 @@ if ( ! $dashboard && $is_admin ) {
 // Inject nonce and dashboard data for the frontend React app.
 // Build the script handle manually for compatibility with WP < 6.5.
 $view_handle = 'advisor-dashboard-dashboard-view-script';
+$column_prefs = get_user_meta( $user_id, 'advdash_column_prefs', true );
+if ( ! is_array( $column_prefs ) ) {
+	$column_prefs = new \stdClass(); // Empty object for JSON encoding.
+}
+
 wp_localize_script( $view_handle, 'advdashFrontend', array(
 	'restUrl'        => esc_url_raw( rest_url( 'advisor-dashboard/v1' ) ),
 	'nonce'          => wp_create_nonce( 'wp_rest' ),
@@ -74,6 +79,7 @@ wp_localize_script( $view_handle, 'advdashFrontend', array(
 			'user' => $d->user_display_name,
 		);
 	}, $all_dashboards ) : array(),
+	'columnPrefs'    => $column_prefs,
 ) );
 
 // Output the React mount point.

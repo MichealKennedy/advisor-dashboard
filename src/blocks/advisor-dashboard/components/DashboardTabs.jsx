@@ -28,6 +28,7 @@ export default function DashboardTabs( { tabs, activeTab, onTabChange, dashboard
 						key={ `${ currentTab.key }-${ dashboardId || 'self' }` }
 						tab={ currentTab.key }
 						columns={ currentTab.columns }
+						pinnedColumns={ currentTab.pinnedColumns }
 						defaultSort={ currentTab.defaultSort }
 						dateFilterField={ currentTab.dateFilterField }
 						dashboardId={ dashboardId }

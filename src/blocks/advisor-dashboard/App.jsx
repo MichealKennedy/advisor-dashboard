@@ -1,6 +1,11 @@
-import { useState } from '@wordpress/element';
+import { useState, useEffect, useCallback } from '@wordpress/element';
 import DashboardTabs from './components/DashboardTabs';
-import { TAB_CONFIG } from '../../shared/utils';
+import { TAB_CONFIG, VALID_TABS } from '../../shared/utils';
+
+function getTabFromHash() {
+	const hash = window.location.hash.slice( 1 );
+	return VALID_TABS.includes( hash ) ? hash : TAB_CONFIG[ 0 ].key;
+}
 
 export default function App() {
 	const {
@@ -11,7 +16,7 @@ export default function App() {
 	} = window.advdashFrontend || {};
 
 	const [ selectedDashboardId, setSelectedDashboardId ] = useState( initialDashboardId );
-	const [ activeTab, setActiveTab ] = useState( TAB_CONFIG[ 0 ].key );
+	const [ activeTab, setActiveTab ] = useState( getTabFromHash );
 
 	const currentDashboard = isAdmin
 		? allDashboards?.find( ( d ) => d.id === selectedDashboardId )
@@ -20,10 +25,23 @@ export default function App() {
 		? currentDashboard.name
 		: ( initialDashboardName || 'Advisor Dashboard' );
 
+	const handleTabChange = useCallback( ( tabKey ) => {
+		setActiveTab( tabKey );
+		window.history.replaceState( null, '', '#' + tabKey );
+	}, [] );
+
+	useEffect( () => {
+		const onHashChange = () => {
+			setActiveTab( getTabFromHash() );
+		};
+		window.addEventListener( 'hashchange', onHashChange );
+		return () => window.removeEventListener( 'hashchange', onHashChange );
+	}, [] );
+
 	const handleDashboardChange = ( e ) => {
 		const newId = parseInt( e.target.value, 10 );
 		setSelectedDashboardId( newId );
-		setActiveTab( TAB_CONFIG[ 0 ].key );
+		handleTabChange( TAB_CONFIG[ 0 ].key );
 	};
 
 	return (
@@ -51,7 +69,7 @@ export default function App() {
 			<DashboardTabs
 				tabs={ TAB_CONFIG }
 				activeTab={ activeTab }
-				onTabChange={ setActiveTab }
+				onTabChange={ handleTabChange }
 				dashboardId={ isAdmin ? selectedDashboardId : null }
 				isAdmin={ !! isAdmin }
 			/>

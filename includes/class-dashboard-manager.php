@@ -232,6 +232,7 @@ class AdvDash_Dashboard_Manager {
 		'rsvp_confirmed',
 		'food_option_fed',
 		'food_option_spouse',
+		'advisor_status',
 	);
 
 	public function get_contacts( $dashboard_id, $args = array() ) {
@@ -329,10 +330,11 @@ class AdvDash_Dashboard_Manager {
 		);
 
 		$args = wp_parse_args( $args, $defaults );
+		$tab  = sanitize_text_field( $args['tab'] );
 
 		// Build WHERE clause (same logic as get_contacts).
 		$where_parts  = array( 'dashboard_id = %d', 'tab = %s' );
-		$where_values = array( absint( $dashboard_id ), sanitize_text_field( $args['tab'] ) );
+		$where_values = array( absint( $dashboard_id ), $tab );
 
 		if ( ! empty( $args['search'] ) ) {
 			$like           = '%' . $wpdb->esc_like( sanitize_text_field( $args['search'] ) ) . '%';
@@ -350,56 +352,112 @@ class AdvDash_Dashboard_Manager {
 
 		$where_clause = implode( ' AND ', $where_parts );
 
-		// Total registrants.
-		$total_registrants = (int) $wpdb->get_var( $wpdb->prepare(
+		// Total contacts.
+		$total = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT COUNT(*) FROM {$this->table_contacts} WHERE {$where_clause}",
 			...$where_values
 		) );
 
-		// Total guests (rows with non-empty spouse_name).
-		$total_guests = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$this->table_contacts} WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != ''",
-			...$where_values
-		) );
+		if ( 'current_registrations' === $tab ) {
+			// Total guests (rows with non-empty spouse_name).
+			$total_guests = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$this->table_contacts} WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != ''",
+				...$where_values
+			) );
 
-		// Food/side breakdowns for registrants (fed).
-		$food_fed = $wpdb->get_results( $wpdb->prepare(
-			"SELECT food_option_fed AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
-			WHERE {$where_clause} AND food_option_fed IS NOT NULL AND food_option_fed != ''
-			GROUP BY food_option_fed ORDER BY count DESC",
-			...$where_values
-		) );
+			return array(
+				'total_registrants'     => $total,
+				'total_guests'          => $total_guests,
+				'food_fed_breakdown'    => $this->get_breakdown( $where_clause, $where_values, 'food_option_fed' ),
+				'side_fed_breakdown'    => $this->get_breakdown( $where_clause, $where_values, 'side_option_fed' ),
+				'food_spouse_breakdown' => $this->get_breakdown( $where_clause, $where_values, 'food_option_spouse', "spouse_name IS NOT NULL AND spouse_name != ''" ),
+				'side_spouse_breakdown' => $this->get_breakdown( $where_clause, $where_values, 'side_option_spouse', "spouse_name IS NOT NULL AND spouse_name != ''" ),
+			);
+		}
 
-		$side_fed = $wpdb->get_results( $wpdb->prepare(
-			"SELECT side_option_fed AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
-			WHERE {$where_clause} AND side_option_fed IS NOT NULL AND side_option_fed != ''
-			GROUP BY side_option_fed ORDER BY count DESC",
-			...$where_values
-		) );
+		if ( 'attended_report' === $tab || 'attended_other' === $tab ) {
+			return array(
+				'total'                        => $total,
+				'meet_for_report_breakdown'    => $this->get_breakdown( $where_clause, $where_values, 'meet_for_report' ),
+				'retirement_system_breakdown'  => $this->get_breakdown( $where_clause, $where_values, 'retirement_system' ),
+				'rate_material_breakdown'      => $this->get_breakdown( $where_clause, $where_values, 'rate_material' ),
+			);
+		}
 
-		// Food/side breakdowns for guests (spouse) — only rows with a spouse.
-		$food_spouse = $wpdb->get_results( $wpdb->prepare(
-			"SELECT food_option_spouse AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
-			WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != '' AND food_option_spouse IS NOT NULL AND food_option_spouse != ''
-			GROUP BY food_option_spouse ORDER BY count DESC",
-			...$where_values
-		) );
+		if ( 'fed_request' === $tab ) {
+			return array(
+				'total'                                   => $total,
+				'retirement_system_breakdown'             => $this->get_breakdown( $where_clause, $where_values, 'retirement_system' ),
+				'time_frame_for_retirement_breakdown'     => $this->get_breakdown( $where_clause, $where_values, 'time_frame_for_retirement' ),
+				'meet_for_report_breakdown'               => $this->get_breakdown( $where_clause, $where_values, 'meet_for_report' ),
+			);
+		}
 
-		$side_spouse = $wpdb->get_results( $wpdb->prepare(
-			"SELECT side_option_spouse AS option_name, COUNT(*) AS count FROM {$this->table_contacts}
-			WHERE {$where_clause} AND spouse_name IS NOT NULL AND spouse_name != '' AND side_option_spouse IS NOT NULL AND side_option_spouse != ''
-			GROUP BY side_option_spouse ORDER BY count DESC",
-			...$where_values
-		) );
+		return array( 'total' => $total );
+	}
 
-		return array(
-			'total_registrants'     => $total_registrants,
-			'total_guests'          => $total_guests,
-			'food_fed_breakdown'    => $food_fed ? $food_fed : array(),
-			'side_fed_breakdown'    => $side_fed ? $side_fed : array(),
-			'food_spouse_breakdown' => $food_spouse ? $food_spouse : array(),
-			'side_spouse_breakdown' => $side_spouse ? $side_spouse : array(),
+	private function get_breakdown( $where_clause, $where_values, $column, $extra_condition = '' ) {
+		global $wpdb;
+
+		$allowed = array(
+			'meet_for_report', 'retirement_system', 'rate_material',
+			'time_frame_for_retirement', 'food_option_fed', 'side_option_fed',
+			'food_option_spouse', 'side_option_spouse',
 		);
+
+		if ( ! in_array( $column, $allowed, true ) ) {
+			return array();
+		}
+
+		$condition = "{$where_clause} AND {$column} IS NOT NULL AND {$column} != ''";
+		if ( $extra_condition ) {
+			$condition .= " AND {$extra_condition}";
+		}
+
+		$results = $wpdb->get_results( $wpdb->prepare(
+			"SELECT {$column} AS option_name, COUNT(*) AS count
+			FROM {$this->table_contacts}
+			WHERE {$condition}
+			GROUP BY {$column} ORDER BY count DESC",
+			...$where_values
+		) );
+
+		return $results ? $results : array();
+	}
+
+	public static $advisor_statuses = array( '', 'new', 'contacted', 'scheduled', 'completed', 'not_interested' );
+
+	public function update_contact_notes( $contact_id, $dashboard_id, $data ) {
+		global $wpdb;
+
+		$update = array();
+		$format = array();
+
+		if ( isset( $data['advisor_notes'] ) ) {
+			$update['advisor_notes'] = $data['advisor_notes'];
+			$format[]                = '%s';
+		}
+		if ( isset( $data['advisor_status'] ) ) {
+			$update['advisor_status'] = $data['advisor_status'];
+			$format[]                 = '%s';
+		}
+
+		if ( empty( $update ) ) {
+			return false;
+		}
+
+		$result = $wpdb->update(
+			$this->table_contacts,
+			$update,
+			array(
+				'id'           => absint( $contact_id ),
+				'dashboard_id' => absint( $dashboard_id ),
+			),
+			$format,
+			array( '%d', '%d' )
+		);
+
+		return false !== $result && $wpdb->rows_affected > 0;
 	}
 
 	public function delete_contact( $contact_id, $dashboard_id ) {

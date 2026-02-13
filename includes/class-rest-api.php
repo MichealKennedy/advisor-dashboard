@@ -179,17 +179,43 @@ class AdvDash_Rest_API {
 			),
 		) );
 
-		// Delete a contact (admin only).
-		register_rest_route( $this->namespace, '/my-dashboard/contacts/(?P<contact_id>\d+)', array(
-			'methods'             => 'DELETE',
-			'callback'            => array( $this, 'delete_my_contact' ),
-			'permission_callback' => array( $this, 'check_admin' ),
+		// Column visibility preferences (user meta).
+		register_rest_route( $this->namespace, '/my-dashboard/column-prefs', array(
+			'methods'             => 'PUT',
+			'callback'            => array( $this, 'save_column_prefs' ),
+			'permission_callback' => array( $this, 'check_logged_in' ),
 			'args'                => array(
-				'contact_id'   => array(
-					'required' => true,
-					'type'     => 'integer',
+				'prefs' => array( 'required' => true, 'type' => 'object' ),
+			),
+		) );
+
+		// Update contact notes/status, and delete a contact.
+		register_rest_route( $this->namespace, '/my-dashboard/contacts/(?P<contact_id>\d+)', array(
+			array(
+				'methods'             => 'PATCH',
+				'callback'            => array( $this, 'update_my_contact_notes' ),
+				'permission_callback' => array( $this, 'check_logged_in' ),
+				'args'                => array(
+					'contact_id'     => array( 'required' => true, 'type' => 'integer' ),
+					'advisor_notes'  => array( 'type' => 'string', 'required' => false ),
+					'advisor_status' => array(
+						'type'              => 'string',
+						'required'          => false,
+						'validate_callback' => function ( $param ) {
+							return in_array( $param, AdvDash_Dashboard_Manager::$advisor_statuses, true );
+						},
+					),
+					'dashboard_id'   => array( 'type' => 'integer', 'required' => false ),
 				),
-				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+			),
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'delete_my_contact' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'contact_id'   => array( 'required' => true, 'type' => 'integer' ),
+					'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+				),
 			),
 		) );
 	}
@@ -457,6 +483,58 @@ class AdvDash_Rest_API {
 		) );
 
 		return new WP_REST_Response( $summary, 200 );
+	}
+
+	public function save_column_prefs( WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		$prefs   = $request->get_param( 'prefs' );
+
+		// Sanitize: only allow valid tab keys with objects of column key => boolean.
+		$valid_tabs = array( 'current_registrations', 'attended_report', 'attended_other', 'fed_request' );
+		$sanitized  = array();
+		if ( is_array( $prefs ) ) {
+			foreach ( $prefs as $tab => $visibility ) {
+				if ( in_array( $tab, $valid_tabs, true ) && is_array( $visibility ) ) {
+					$sanitized[ $tab ] = array();
+					foreach ( $visibility as $col_key => $visible ) {
+						$sanitized[ $tab ][ sanitize_key( $col_key ) ] = (bool) $visible;
+					}
+				}
+			}
+		}
+
+		update_user_meta( $user_id, 'advdash_column_prefs', $sanitized );
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	public function update_my_contact_notes( WP_REST_Request $request ) {
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
+		}
+
+		$contact_id = (int) $request->get_param( 'contact_id' );
+		$update     = array();
+
+		if ( $request->has_param( 'advisor_notes' ) ) {
+			$update['advisor_notes'] = sanitize_textarea_field( $request->get_param( 'advisor_notes' ) );
+		}
+		if ( $request->has_param( 'advisor_status' ) ) {
+			$update['advisor_status'] = sanitize_text_field( $request->get_param( 'advisor_status' ) );
+		}
+
+		if ( empty( $update ) ) {
+			return new WP_Error( 'no_data', 'No data to update.', array( 'status' => 400 ) );
+		}
+
+		$result = $this->manager->update_contact_notes( $contact_id, $dashboard->id, $update );
+
+		if ( ! $result ) {
+			return new WP_Error( 'update_failed', 'Contact not found or could not be updated.', array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( array( 'success' => true, 'contact_id' => $contact_id ), 200 );
 	}
 
 	public function delete_my_contact( WP_REST_Request $request ) {

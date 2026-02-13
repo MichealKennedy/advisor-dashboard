@@ -89,6 +89,8 @@ class AdvDash_Activator {
 			meet_for_report varchar(10) DEFAULT NULL,
 			date_of_lead_request date DEFAULT NULL,
 			status varchar(100) DEFAULT NULL,
+			advisor_status varchar(50) DEFAULT NULL,
+			advisor_notes text DEFAULT NULL,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
