@@ -7,14 +7,24 @@ class AdvDash_Webhook_Handler {
 
 	private $manager;
 
-	private static $valid_tabs = array(
-		'current_registrations',
-		'attended_report',
+	private static $valid_actions = array(
+		'register',
+		'cancel',
+		'attended',
 		'attended_other',
 		'fed_request',
 	);
 
+	private static $action_status_map = array(
+		'register'       => 'registered',
+		'cancel'         => 'cancelled',
+		'attended'       => 'attended_report',
+		'attended_other' => 'attended_other',
+		'fed_request'    => 'fed_request',
+	);
+
 	private static $field_map = array(
+		// snake_case and camelCase field names.
 		'contact_id'                  => 'contact_id',
 		'contactId'                   => 'contact_id',
 		'first_name'                  => 'first_name',
@@ -65,6 +75,36 @@ class AdvDash_Webhook_Handler {
 		'meet_for_report'             => 'meet_for_report',
 		'date_of_lead_request'        => 'date_of_lead_request',
 		'status'                      => 'status',
+
+		// HighLevel CRM human-readable field names.
+		'Workshop Date'                        => 'workshop_date',
+		'Workshop Appointment Date'            => 'workshop_date',
+		'Spouse Name'                          => 'spouse_name',
+		'Food Option Selected'                 => 'food_option_fed',
+		'Food Option Selected for Spouse'      => 'food_option_spouse',
+		'Food Side Option Selected'            => 'side_option_fed',
+		'Food Side Option Selected for Spouse' => 'side_option_spouse',
+		'Lunch Options (Fed)'                  => 'food_option_fed',
+		'Lunch Options (Spouse)'               => 'food_option_spouse',
+		'Lunch Side Option Selected (Fed)'     => 'side_option_fed',
+		'Lunch Side Option Selected (Spouse)'  => 'side_option_spouse',
+		'Food Side Options (Fed)'              => 'side_option_fed',
+		'Food Side Options (Spouse)'           => 'side_option_spouse',
+		'RSVP - Confirmed'                     => 'rsvp_confirmed',
+		'Department/Agency'                    => 'agency',
+		'Work Phone'                           => 'work_phone',
+		'Work Email'                           => 'work_email',
+		'Personal Email'                       => 'personal_email',
+		'Best Email'                           => 'best_email',
+		'Cell Phone'                           => 'cell_phone',
+		'Special Provisions'                   => 'special_provisions',
+		'Retirement System'                    => 'retirement_system',
+		'Timeline for retirement'              => 'time_frame_for_retirement',
+		'FRIW Webform Completed'               => 'registration_form_completed',
+		'Comments or Questions'                => 'comment_on_registration',
+		'Additional Comments on Evaluation'    => 'additional_comments',
+		'Member Workshop Code (2-4 letters)'   => 'member_workshop_code',
+		'Workshop Status'                      => 'status',
 	);
 
 	// Columns that hold DATE values — used for sanitization.
@@ -75,7 +115,7 @@ class AdvDash_Webhook_Handler {
 	);
 
 	// Reserved fields that are not contact data.
-	private static $reserved_fields = array( 'tab', '_action', 'advisor_code', 'advisorCode' );
+	private static $reserved_fields = array( 'action', 'advisor_code', 'advisorCode' );
 
 	public function __construct( AdvDash_Dashboard_Manager $manager ) {
 		$this->manager = $manager;
@@ -154,22 +194,18 @@ class AdvDash_Webhook_Handler {
 
 		$dashboard_id = (int) $dashboard->id;
 
-		// 6. Extract reserved fields.
-		$tab = isset( $body['tab'] ) ? sanitize_text_field( $body['tab'] ) : '';
+		// 6. Extract action (required).
+		$action = isset( $body['action'] ) ? sanitize_text_field( $body['action'] ) : '';
 
-		if ( ! in_array( $tab, self::$valid_tabs, true ) ) {
+		if ( ! in_array( $action, self::$valid_actions, true ) ) {
 			return new WP_Error(
-				'invalid_tab',
-				'The "tab" field is required and must be one of: ' . implode( ', ', self::$valid_tabs ),
+				'invalid_action',
+				'The "action" field is required and must be one of: ' . implode( ', ', self::$valid_actions ),
 				array( 'status' => 400 )
 			);
 		}
 
-		$action = isset( $body['_action'] ) ? sanitize_text_field( $body['_action'] ) : 'add';
-
-		if ( ! in_array( $action, array( 'add', 'remove' ), true ) ) {
-			return new WP_Error( 'invalid_action', 'The "_action" field must be "add" or "remove".', array( 'status' => 400 ) );
-		}
+		$contact_status = self::$action_status_map[ $action ];
 
 		// 7. Map fields.
 		$mapped_data = array();
@@ -192,12 +228,21 @@ class AdvDash_Webhook_Handler {
 
 		$contact_id = isset( $mapped_data['contact_id'] ) ? $mapped_data['contact_id'] : null;
 
-		// 8. Dispatch action.
-		if ( 'remove' === $action ) {
-			return $this->handle_remove( $dashboard_id, $tab, $contact_id );
+		// contact_id is required for all actions (needed for unique key).
+		if ( empty( $contact_id ) ) {
+			return new WP_Error(
+				'missing_contact_id',
+				'The "contact_id" field is required.',
+				array( 'status' => 400 )
+			);
 		}
 
-		return $this->handle_add( $dashboard_id, $tab, $mapped_data, $contact_id );
+		// 8. Dispatch action.
+		if ( 'cancel' === $action ) {
+			return $this->handle_cancel( $dashboard_id, $mapped_data, $contact_id );
+		}
+
+		return $this->handle_upsert( $dashboard_id, $contact_status, $mapped_data, $contact_id );
 	}
 
 	/**
@@ -246,50 +291,46 @@ class AdvDash_Webhook_Handler {
 		return $flat;
 	}
 
-	private function handle_add( $dashboard_id, $tab, $mapped_data, $contact_id ) {
+	private function handle_upsert( $dashboard_id, $contact_status, $mapped_data, $contact_id ) {
 		global $wpdb;
 
 		if ( empty( $mapped_data ) ) {
 			return new WP_Error( 'empty_payload', 'No valid contact fields provided.', array( 'status' => 400 ) );
 		}
 
-		// Validate minimum data: need at least contact_id OR first + last name.
-		$has_contact_id = ! empty( $contact_id );
-		$has_name       = ! empty( $mapped_data['first_name'] ) && ! empty( $mapped_data['last_name'] );
-
-		if ( ! $has_contact_id && ! $has_name ) {
-			return new WP_Error(
-				'insufficient_data',
-				'Payload must include contact_id or both first_name and last_name.',
-				array( 'status' => 400 )
-			);
-		}
-
 		$table = $wpdb->prefix . 'advdash_contacts';
 
-		// Always include dashboard_id and tab.
-		$mapped_data['dashboard_id'] = $dashboard_id;
-		$mapped_data['tab']          = $tab;
+		// Always include dashboard_id and contact_status.
+		$mapped_data['dashboard_id']    = $dashboard_id;
+		$mapped_data['contact_status']  = $contact_status;
 
 		// Build columns, placeholders, and values.
-		$columns      = array();
+		$columns       = array();
 		$placeholders  = array();
-		$values       = array();
-		$update_parts = array();
+		$values        = array();
+		$update_parts  = array();
 
 		foreach ( $mapped_data as $col => $val ) {
-			$columns[]     = $col;
-			$placeholder   = $this->get_placeholder( $col );
+			$columns[]      = $col;
+			$placeholder    = $this->get_placeholder( $col );
 			$placeholders[] = $placeholder;
-			$values[]      = $val;
+			$values[]       = $val;
 
-			// Don't include dashboard_id and tab in the UPDATE clause.
-			if ( ! in_array( $col, array( 'dashboard_id', 'tab', 'contact_id' ), true ) ) {
+			// Don't include identity columns in the UPDATE clause.
+			if ( in_array( $col, array( 'dashboard_id', 'contact_id' ), true ) ) {
+				continue;
+			}
+
+			if ( 'contact_status' === $col ) {
+				// Save the previous status before overwriting.
+				$update_parts[] = 'previous_status = contact_status';
+				$update_parts[] = 'contact_status = VALUES(contact_status)';
+			} else {
 				$update_parts[] = "{$col} = VALUES({$col})";
 			}
 		}
 
-		$columns_str     = implode( ', ', $columns );
+		$columns_str      = implode( ', ', $columns );
 		$placeholders_str = implode( ', ', $placeholders );
 
 		// Always update updated_at.
@@ -309,41 +350,70 @@ class AdvDash_Webhook_Handler {
 
 		return new WP_REST_Response(
 			array(
-				'success'    => true,
-				'action'     => 'add',
-				'contact_id' => $contact_id,
+				'success'        => true,
+				'action'         => 'upsert',
+				'contact_status' => $contact_status,
+				'contact_id'     => $contact_id,
 			),
 			200
 		);
 	}
 
-	private function handle_remove( $dashboard_id, $tab, $contact_id ) {
+	private function handle_cancel( $dashboard_id, $mapped_data, $contact_id ) {
 		global $wpdb;
 
-		if ( empty( $contact_id ) ) {
-			return new WP_Error( 'missing_contact_id', 'The "contact_id" field is required for remove actions.', array( 'status' => 400 ) );
+		$table = $wpdb->prefix . 'advdash_contacts';
+
+		// Check that the contact exists.
+		$existing = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, contact_status FROM {$table} WHERE dashboard_id = %d AND contact_id = %s",
+			$dashboard_id,
+			$contact_id
+		) );
+
+		if ( ! $existing ) {
+			return new WP_Error( 'not_found', 'No matching contact found to cancel.', array( 'status' => 404 ) );
 		}
 
-		$table  = $wpdb->prefix . 'advdash_contacts';
-		$result = $wpdb->delete(
-			$table,
-			array(
-				'dashboard_id' => $dashboard_id,
-				'tab'          => $tab,
-				'contact_id'   => $contact_id,
-			),
-			array( '%d', '%s', '%s' )
+		// Build update data: set previous_status, contact_status, and merge any extra fields.
+		$update_data = array(
+			'previous_status' => $existing->contact_status,
+			'contact_status'  => 'cancelled',
+			'updated_at'      => current_time( 'mysql', true ),
 		);
 
-		if ( 0 === $wpdb->rows_affected ) {
-			return new WP_Error( 'not_found', 'No matching contact found to remove.', array( 'status' => 404 ) );
+		// Merge any additional fields sent with the cancel action.
+		foreach ( $mapped_data as $col => $val ) {
+			if ( in_array( $col, array( 'dashboard_id', 'contact_id', 'contact_status', 'previous_status' ), true ) ) {
+				continue;
+			}
+			$update_data[ $col ] = $val;
+		}
+
+		$formats = array();
+		foreach ( $update_data as $col => $val ) {
+			$formats[] = $this->get_placeholder( $col );
+		}
+
+		$result = $wpdb->update(
+			$table,
+			$update_data,
+			array( 'id' => $existing->id ),
+			$formats,
+			array( '%d' )
+		);
+
+		if ( false === $result ) {
+			error_log( '[AdvDash] Webhook cancel failed: ' . $wpdb->last_error );
+			return new WP_Error( 'db_error', 'Failed to cancel contact.', array( 'status' => 500 ) );
 		}
 
 		return new WP_REST_Response(
 			array(
-				'success'    => true,
-				'action'     => 'remove',
-				'contact_id' => $contact_id,
+				'success'        => true,
+				'action'         => 'cancel',
+				'contact_status' => 'cancelled',
+				'contact_id'     => $contact_id,
 			),
 			200
 		);
@@ -378,7 +448,7 @@ class AdvDash_Webhook_Handler {
 	}
 
 	private function log_result( $webhook_key, $raw_body, $ip_address, $result ) {
-		// Parse tab/action/contact_id from raw body for indexable columns.
+		// Parse action/contact_id from raw body for indexable columns.
 		$body_data         = json_decode( $raw_body, true );
 		$parsed_tab        = null;
 		$parsed_action     = null;
@@ -386,12 +456,25 @@ class AdvDash_Webhook_Handler {
 		$dashboard_id      = null;
 
 		if ( is_array( $body_data ) ) {
-			$parsed_tab        = isset( $body_data['tab'] ) ? $body_data['tab'] : null;
-			$parsed_action     = isset( $body_data['_action'] ) ? $body_data['_action'] : 'add';
-			$parsed_contact_id = isset( $body_data['contact_id'] ) ? $body_data['contact_id'] : ( isset( $body_data['contactId'] ) ? $body_data['contactId'] : null );
+			// Check customData for fields that HighLevel may nest there.
+			$custom = isset( $body_data['customData'] ) && is_array( $body_data['customData'] ) ? $body_data['customData'] : array();
+
+			$parsed_action = isset( $body_data['action'] ) ? $body_data['action']
+						   : ( isset( $custom['action'] ) ? $custom['action'] : null );
+
+			// Derive tab/status from action for log indexing.
+			if ( $parsed_action && isset( self::$action_status_map[ $parsed_action ] ) ) {
+				$parsed_tab = self::$action_status_map[ $parsed_action ];
+			}
+
+			$parsed_contact_id = isset( $body_data['contact_id'] ) ? $body_data['contact_id']
+							   : ( isset( $body_data['contactId'] ) ? $body_data['contactId'] : null );
 
 			// Resolve dashboard_id from advisor_code.
-			$advisor_code = isset( $body_data['advisor_code'] ) ? $body_data['advisor_code'] : ( isset( $body_data['advisorCode'] ) ? $body_data['advisorCode'] : null );
+			$advisor_code = isset( $body_data['advisor_code'] ) ? $body_data['advisor_code']
+						  : ( isset( $body_data['advisorCode'] ) ? $body_data['advisorCode']
+						  : ( isset( $custom['advisor_code'] ) ? $custom['advisor_code'] : null ) );
+
 			if ( $advisor_code ) {
 				$dashboard = $this->manager->get_dashboard_by_workshop_code( $advisor_code );
 				if ( $dashboard ) {

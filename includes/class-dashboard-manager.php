@@ -27,11 +27,11 @@ class AdvDash_Dashboard_Manager {
 
 		$dashboards = $wpdb->get_results(
 			"SELECT d.*,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id ) AS contact_count,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'current_registrations' ) AS tab_current_registrations,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'attended_report' ) AS tab_attended_report,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'attended_other' ) AS tab_attended_other,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.tab = 'fed_request' ) AS tab_fed_request
+				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status != 'cancelled' ) AS contact_count,
+				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'registered' ) AS tab_current_registrations,
+				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'attended_report' ) AS tab_attended_report,
+				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'attended_other' ) AS tab_attended_other,
+				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'fed_request' ) AS tab_fed_request
 			FROM {$this->table_dashboards} d
 			ORDER BY d.created_at DESC"
 		);
@@ -255,6 +255,13 @@ class AdvDash_Dashboard_Manager {
 	 * Contacts
 	 * ---------------------------------------------------------------------- */
 
+	private static $tab_status_map = array(
+		'current_registrations' => array( 'registered' ),
+		'attended_report'       => array( 'attended_report' ),
+		'attended_other'        => array( 'attended_other' ),
+		'fed_request'           => array( 'fed_request' ),
+	);
+
 	private static $allowed_orderby = array(
 		'first_name',
 		'last_name',
@@ -263,6 +270,7 @@ class AdvDash_Dashboard_Manager {
 		'state',
 		'agency',
 		'status',
+		'contact_status',
 		'date_of_lead_request',
 		'registration_form_completed',
 		'created_at',
@@ -306,9 +314,14 @@ class AdvDash_Dashboard_Manager {
 		$orderby = in_array( $args['orderby'], self::$allowed_orderby, true ) ? $args['orderby'] : 'created_at';
 		$order   = strtoupper( $args['order'] ) === 'ASC' ? 'ASC' : 'DESC';
 
+		// Translate tab to contact_status values.
+		$tab      = sanitize_text_field( $args['tab'] );
+		$statuses = isset( self::$tab_status_map[ $tab ] ) ? self::$tab_status_map[ $tab ] : array( 'registered' );
+
 		// Build WHERE clause.
-		$where_parts  = array( 'dashboard_id = %d', 'tab = %s' );
-		$where_values = array( absint( $dashboard_id ), sanitize_text_field( $args['tab'] ) );
+		$status_placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+		$where_parts  = array( 'dashboard_id = %d', "contact_status IN ({$status_placeholders})" );
+		$where_values = array_merge( array( absint( $dashboard_id ) ), $statuses );
 
 		if ( ! empty( $args['search'] ) ) {
 			$like           = '%' . $wpdb->esc_like( sanitize_text_field( $args['search'] ) ) . '%';
@@ -355,13 +368,18 @@ class AdvDash_Dashboard_Manager {
 		$allowed_date_fields = array( 'workshop_date', 'date_of_lead_request' );
 		$col = in_array( $date_field, $allowed_date_fields, true ) ? $date_field : 'workshop_date';
 
+		// Translate tab to contact_status values.
+		$statuses            = isset( self::$tab_status_map[ $tab ] ) ? self::$tab_status_map[ $tab ] : array( 'registered' );
+		$status_placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		$query_values = array_merge( array( absint( $dashboard_id ) ), $statuses );
+
 		$results = $wpdb->get_results( $wpdb->prepare(
 			"SELECT {$col} AS date_value, COUNT(*) AS count FROM {$this->table_contacts}
-			WHERE dashboard_id = %d AND tab = %s AND {$col} IS NOT NULL AND {$col} > '0000-00-00'
+			WHERE dashboard_id = %d AND contact_status IN ({$status_placeholders}) AND {$col} IS NOT NULL AND {$col} > '0000-00-00'
 			GROUP BY {$col}
 			ORDER BY {$col} DESC",
-			absint( $dashboard_id ),
-			sanitize_text_field( $tab )
+			...$query_values
 		) );
 
 		return $results ? $results : array();
@@ -380,9 +398,13 @@ class AdvDash_Dashboard_Manager {
 		$args = wp_parse_args( $args, $defaults );
 		$tab  = sanitize_text_field( $args['tab'] );
 
+		// Translate tab to contact_status values.
+		$statuses            = isset( self::$tab_status_map[ $tab ] ) ? self::$tab_status_map[ $tab ] : array( 'registered' );
+		$status_placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
 		// Build WHERE clause (same logic as get_contacts).
-		$where_parts  = array( 'dashboard_id = %d', 'tab = %s' );
-		$where_values = array( absint( $dashboard_id ), $tab );
+		$where_parts  = array( 'dashboard_id = %d', "contact_status IN ({$status_placeholders})" );
+		$where_values = array_merge( array( absint( $dashboard_id ) ), $statuses );
 
 		if ( ! empty( $args['search'] ) ) {
 			$like           = '%' . $wpdb->esc_like( sanitize_text_field( $args['search'] ) ) . '%';

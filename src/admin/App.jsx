@@ -14,7 +14,7 @@ function HelpDialog( { onClose } ) {
 				<ol>
 					<li><strong>Generate the shared webhook</strong> &mdash; On the main page, click "Generate Shared Webhook URL" and copy the URL.</li>
 					<li><strong>Create a dashboard</strong> &mdash; Click "Add New Dashboard", give it a name, select the advisor's WordPress user account, and enter their unique member workshop code (e.g., "SFG").</li>
-					<li><strong>Set up HighLevel workflows</strong> &mdash; In your HighLevel workflow, add a Webhook action that POSTs to the shared URL. Include <code>advisor_code</code>, <code>tab</code>, and contact fields as Custom Data (see below).</li>
+					<li><strong>Set up HighLevel workflows</strong> &mdash; In your HighLevel workflow, add a Webhook action that POSTs to the shared URL. Include <code>advisor_code</code>, <code>action</code>, <code>contact_id</code>, and contact fields as Custom Data (see below).</li>
 					<li><strong>Add the block to a page</strong> &mdash; In the WordPress block editor, add the "Advisor Dashboard" block to any page. When an advisor visits that page while logged in, they'll see their tabbed dashboard.</li>
 				</ol>
 
@@ -22,7 +22,7 @@ function HelpDialog( { onClose } ) {
 				<p>
 					A single webhook URL is shared by all advisors. Each HighLevel workflow payload must include
 					an <code>advisor_code</code> field set to the advisor's <strong>Member Workshop Code</strong> to route
-					contacts to the correct dashboard. The <code>tab</code> field determines which tab the contact appears on.
+					contacts to the correct dashboard. The <code>action</code> field determines the contact's status and which tab they appear on.
 				</p>
 
 				<h3>HighLevel Webhook Setup</h3>
@@ -31,46 +31,53 @@ function HelpDialog( { onClose } ) {
 					<thead>
 						<tr>
 							<th>Scenario</th>
-							<th><code>tab</code> value</th>
-							<th><code>_action</code> value</th>
+							<th><code>action</code> value</th>
+							<th>Dashboard Tab</th>
 						</tr>
 					</thead>
 					<tbody>
 						<tr>
 							<td>Contact registers for a workshop</td>
-							<td><code>current_registrations</code></td>
-							<td>(omit &mdash; defaults to "add")</td>
+							<td><code>register</code></td>
+							<td>Current Registrations</td>
 						</tr>
 						<tr>
 							<td>Contact cancels registration</td>
-							<td><code>current_registrations</code></td>
-							<td><code>remove</code></td>
+							<td><code>cancel</code></td>
+							<td>(hidden from all tabs)</td>
 						</tr>
 						<tr>
 							<td>Attended workshop &amp; requested report</td>
-							<td><code>attended_report</code></td>
-							<td>(omit)</td>
+							<td><code>attended</code></td>
+							<td>Attended Workshop &amp; Requested Report</td>
 						</tr>
 						<tr>
 							<td>Attended another member's workshop</td>
 							<td><code>attended_other</code></td>
-							<td>(omit)</td>
+							<td>Attended Other Members' Workshop</td>
 						</tr>
 						<tr>
 							<td>Fed employee requested advisor report</td>
 							<td><code>fed_request</code></td>
-							<td>(omit)</td>
+							<td>Fed Employee Requested Advisor Report</td>
 						</tr>
 					</tbody>
 				</table>
+
+				<h3>How It Works</h3>
+				<p>
+					Each contact exists as <strong>one row</strong> per advisor dashboard. When you send
+					a new action for the same <code>contact_id</code>, the contact's status is updated and they
+					automatically move to the corresponding tab. All existing data (notes, advisor status, contact
+					fields) is preserved across status changes.
+				</p>
 
 				<h3>HighLevel Custom Data Fields</h3>
 				<p>Add these as key-value pairs in the webhook action's <strong>Custom Data</strong> section:</p>
 				<ul>
 					<li><code>advisor_code</code> &mdash; <strong>Required.</strong> The advisor's Member Workshop Code (e.g., "SFG"). Routes the contact to the correct dashboard.</li>
-					<li><code>tab</code> &mdash; <strong>Required.</strong> One of the tab values above.</li>
-					<li><code>_action</code> &mdash; Optional. Set to <code>remove</code> only for cancellation workflows. Omit it for add/update.</li>
-					<li><code>contact_id</code> &mdash; The HighLevel contact ID. Required for remove actions, strongly recommended for adds (enables upsert).</li>
+					<li><code>action</code> &mdash; <strong>Required.</strong> One of: <code>register</code>, <code>cancel</code>, <code>attended</code>, <code>attended_other</code>, <code>fed_request</code>.</li>
+					<li><code>contact_id</code> &mdash; <strong>Required.</strong> The HighLevel contact ID. Used to identify and update existing contacts.</li>
 					<li><code>first_name</code>, <code>last_name</code>, <code>city</code>, <code>state</code>, etc. &mdash; Any contact fields you want to store. Use the HighLevel merge field tags to populate them.</li>
 				</ul>
 

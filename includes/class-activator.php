@@ -48,8 +48,10 @@ class AdvDash_Activator {
 		$sql[] = "CREATE TABLE {$table_contacts} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			dashboard_id bigint(20) unsigned NOT NULL,
-			tab varchar(50) NOT NULL,
+			tab varchar(50) DEFAULT NULL,
 			contact_id varchar(100) DEFAULT NULL,
+			contact_status varchar(50) NOT NULL DEFAULT 'registered',
+			previous_status varchar(50) DEFAULT NULL,
 			first_name varchar(255) DEFAULT NULL,
 			last_name varchar(255) DEFAULT NULL,
 			spouse_name varchar(255) DEFAULT NULL,
@@ -94,8 +96,8 @@ class AdvDash_Activator {
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
-			KEY dashboard_tab (dashboard_id, tab),
-			UNIQUE KEY dashboard_tab_contact (dashboard_id, tab, contact_id)
+			KEY dashboard_status (dashboard_id, contact_status),
+			UNIQUE KEY dashboard_contact (dashboard_id, contact_id)
 		) {$charset_collate};";
 
 		// Webhook logs table.
@@ -149,6 +151,148 @@ class AdvDash_Activator {
 			);
 			if ( $index_exists ) {
 				$wpdb->query( "ALTER TABLE {$table_dashboards} DROP INDEX wp_user_id" );
+			}
+		}
+
+		// Migration 2.0.0: Replace tab-based model with contact_status.
+		if ( version_compare( $old_version, '2.0.0', '<' ) ) {
+			$table_contacts = $wpdb->prefix . 'advdash_contacts';
+
+			// Check if the old tab column has data to migrate.
+			$has_tab_data = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_contacts}'
+				   AND COLUMN_NAME = 'tab'"
+			);
+
+			if ( $has_tab_data ) {
+				// Step 1: Populate contact_status from existing tab values.
+				$wpdb->query(
+					"UPDATE {$table_contacts} SET contact_status = CASE tab
+						WHEN 'current_registrations' THEN 'registered'
+						WHEN 'attended_report' THEN 'attended_report'
+						WHEN 'attended_other' THEN 'attended_other'
+						WHEN 'fed_request' THEN 'fed_request'
+						ELSE 'registered'
+					END
+					WHERE contact_status = 'registered' OR contact_status = '' OR contact_status IS NULL"
+				);
+
+				// Step 2: De-duplicate contacts that exist across multiple tabs.
+				// Priority: fed_request(4) > attended_report(3) > attended_other(2) > registered(1).
+				// For each (dashboard_id, contact_id) group with multiple rows,
+				// keep the highest-priority row and merge advisor data from others.
+
+				// Assign priority scores.
+				$priority_case = "CASE contact_status
+					WHEN 'fed_request' THEN 4
+					WHEN 'attended_report' THEN 3
+					WHEN 'attended_other' THEN 2
+					ELSE 1
+				END";
+
+				// Find the winning row ID for each duplicate group (only non-NULL contact_id).
+				// Also merge advisor_notes/advisor_status from lower-priority rows.
+				$duplicates = $wpdb->get_results(
+					"SELECT dashboard_id, contact_id, COUNT(*) as cnt
+					 FROM {$table_contacts}
+					 WHERE contact_id IS NOT NULL
+					 GROUP BY dashboard_id, contact_id
+					 HAVING cnt > 1"
+				);
+
+				foreach ( $duplicates as $dup ) {
+					// Get all rows for this duplicate, ordered by priority desc.
+					$rows = $wpdb->get_results( $wpdb->prepare(
+						"SELECT id, contact_status, advisor_status, advisor_notes, {$priority_case} AS priority
+						 FROM {$table_contacts}
+						 WHERE dashboard_id = %d AND contact_id = %s
+						 ORDER BY {$priority_case} DESC, updated_at DESC",
+						$dup->dashboard_id,
+						$dup->contact_id
+					) );
+
+					if ( count( $rows ) < 2 ) {
+						continue;
+					}
+
+					$winner = $rows[0];
+					$loser_ids = array();
+
+					foreach ( array_slice( $rows, 1 ) as $loser ) {
+						// Merge advisor_notes if winner lacks them.
+						if ( empty( $winner->advisor_notes ) && ! empty( $loser->advisor_notes ) ) {
+							$wpdb->update(
+								$table_contacts,
+								array( 'advisor_notes' => $loser->advisor_notes ),
+								array( 'id' => $winner->id ),
+								array( '%s' ),
+								array( '%d' )
+							);
+						}
+						// Merge advisor_status if winner lacks it.
+						if ( empty( $winner->advisor_status ) && ! empty( $loser->advisor_status ) ) {
+							$wpdb->update(
+								$table_contacts,
+								array( 'advisor_status' => $loser->advisor_status ),
+								array( 'id' => $winner->id ),
+								array( '%s' ),
+								array( '%d' )
+							);
+						}
+						$loser_ids[] = (int) $loser->id;
+					}
+
+					// Delete losing rows.
+					if ( ! empty( $loser_ids ) ) {
+						$ids_placeholder = implode( ',', $loser_ids );
+						$wpdb->query( "DELETE FROM {$table_contacts} WHERE id IN ({$ids_placeholder})" );
+					}
+				}
+			}
+
+			// Step 3: Drop old indexes and add new ones.
+			// dbDelta doesn't handle index changes reliably, so use ALTER TABLE.
+			$old_unique_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_contacts}'
+				   AND INDEX_NAME = 'dashboard_tab_contact'"
+			);
+			if ( $old_unique_exists ) {
+				$wpdb->query( "ALTER TABLE {$table_contacts} DROP INDEX dashboard_tab_contact" );
+			}
+
+			$old_index_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_contacts}'
+				   AND INDEX_NAME = 'dashboard_tab'"
+			);
+			if ( $old_index_exists ) {
+				$wpdb->query( "ALTER TABLE {$table_contacts} DROP INDEX dashboard_tab" );
+			}
+
+			// Add new indexes (if they don't already exist from dbDelta).
+			$new_unique_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_contacts}'
+				   AND INDEX_NAME = 'dashboard_contact'"
+			);
+			if ( ! $new_unique_exists ) {
+				$wpdb->query( "ALTER TABLE {$table_contacts} ADD UNIQUE KEY dashboard_contact (dashboard_id, contact_id)" );
+			}
+
+			$new_index_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_contacts}'
+				   AND INDEX_NAME = 'dashboard_status'"
+			);
+			if ( ! $new_index_exists ) {
+				$wpdb->query( "ALTER TABLE {$table_contacts} ADD KEY dashboard_status (dashboard_id, contact_status)" );
 			}
 		}
 

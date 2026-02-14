@@ -31,6 +31,13 @@ export default function TestContactSender( { onBack } ) {
 	const selectedDashboard = dashboards.find( ( d ) => String( d.id ) === selectedDashboardId );
 	const advisorCode = selectedDashboard?.member_workshop_code || '';
 
+	const TAB_TO_ACTION = {
+		current_registrations: 'register',
+		attended_report: 'attended',
+		attended_other: 'attended_other',
+		fed_request: 'fed_request',
+	};
+
 	const handleSend = async () => {
 		if ( ! webhook?.webhook_url || ! advisorCode ) {
 			return;
@@ -46,7 +53,7 @@ export default function TestContactSender( { onBack } ) {
 
 		for ( let i = 0; i < count; i++ ) {
 			const payload = generateTestContact( selectedTab );
-			payload.tab = selectedTab;
+			payload.action = TAB_TO_ACTION[ selectedTab ];
 			payload.advisor_code = advisorCode;
 
 			try {
@@ -148,7 +155,7 @@ export default function TestContactSender( { onBack } ) {
 				{ webhookStatus }
 
 				<SelectControl
-					label="Tab"
+					label="Action"
 					value={ selectedTab }
 					options={ tabOptions }
 					onChange={ setSelectedTab }
