@@ -280,6 +280,10 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 						val = formatDate( val );
 					}
 					val = String( val );
+					// Neutralize CSV formula injection.
+					if ( /^[=+\-@\t\r]/.test( val ) ) {
+						val = "'" + val;
+					}
 					// Escape CSV values.
 					if (
 						val.includes( ',' ) ||

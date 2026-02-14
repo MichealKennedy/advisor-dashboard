@@ -188,6 +188,11 @@ export default function WebhookLogViewer( { onBack } ) {
 						<span className="advdash-admin__log-retention">
 							Retention: { retentionDays } days
 						</span>
+						{ loggingEnabled && (
+							<p style={ { margin: '4px 0 0', fontSize: '12px', color: '#756b00' } }>
+								Webhook logs contain full request payloads including contact PII. Logs are automatically deleted after { retentionDays } days.
+							</p>
+						) }
 					</>
 				) }
 			</div>

@@ -138,11 +138,21 @@ class AdvDash_Webhook_Handler {
 	private function process_webhook( WP_REST_Request $request ) {
 		$webhook_key = $request->get_param( 'webhook_key' );
 
+		// 0. IP-based rate limiting — prevent log flooding from invalid key spam.
+		$ip_address  = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+		$ip_rate_key = 'advdash_ip_' . md5( $ip_address );
+		$ip_count    = (int) get_transient( $ip_rate_key );
+
+		if ( $ip_count >= 30 ) {
+			return new WP_Error( 'rate_limited', 'Too many requests. Try again later.', array( 'status' => 429 ) );
+		}
+
+		set_transient( $ip_rate_key, $ip_count + 1, 60 );
+
 		// 1. Validate shared webhook key.
 		$stored_key = $this->manager->get_shared_webhook_key();
 
 		if ( empty( $stored_key ) || ! hash_equals( $stored_key, $webhook_key ) ) {
-			error_log( '[AdvDash] Webhook 404: invalid key attempted.' );
 			return new WP_Error( 'invalid_key', 'Invalid webhook key.', array( 'status' => 404 ) );
 		}
 
@@ -160,12 +170,9 @@ class AdvDash_Webhook_Handler {
 		$body = $this->parse_payload( $request );
 
 		if ( ! is_array( $body ) || empty( $body ) ) {
-			error_log( '[AdvDash] Webhook bad payload. Content-Type: ' . $request->get_content_type()['value'] . ' Raw body: ' . substr( $request->get_body(), 0, 500 ) );
+			error_log( '[AdvDash] Webhook bad payload. Content-Type: ' . $request->get_content_type()['value'] . ' Body length: ' . strlen( $request->get_body() ) );
 			return new WP_Error( 'invalid_payload', 'Request body could not be parsed.', array( 'status' => 400 ) );
 		}
-
-		// Log the flattened payload for debugging.
-		error_log( '[AdvDash] Webhook received payload: ' . wp_json_encode( $body ) );
 
 		// 4. Extract advisor_code — REQUIRED for shared webhook.
 		$advisor_code = isset( $body['advisor_code'] ) ? sanitize_text_field( $body['advisor_code'] ) : '';
