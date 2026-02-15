@@ -5,6 +5,7 @@ import DashboardEditor from './components/DashboardEditor';
 import TestContactSender from './components/TestContactSender';
 import WebhookLogViewer from './components/WebhookLogViewer';
 import SharedWebhookManager from './components/SharedWebhookManager';
+import CreateDashboardDialog from './components/CreateDashboardDialog';
 
 function HelpDialog( { onClose } ) {
 	return (
@@ -95,6 +96,10 @@ export default function App() {
 	const [ view, setView ] = useState( 'list' );
 	const [ selectedId, setSelectedId ] = useState( null );
 	const [ showHelp, setShowHelp ] = useState( false );
+	const [ showWebhook, setShowWebhook ] = useState( false );
+	const [ showCreate, setShowCreate ] = useState( false );
+	const [ showTest, setShowTest ] = useState( false );
+	const [ listKey, setListKey ] = useState( 0 );
 
 	const handleEdit = ( id ) => {
 		setSelectedId( id );
@@ -102,8 +107,12 @@ export default function App() {
 	};
 
 	const handleCreate = () => {
-		setSelectedId( null );
-		setView( 'editor' );
+		setShowCreate( true );
+	};
+
+	const handleCreated = () => {
+		setShowCreate( false );
+		setListKey( ( k ) => k + 1 );
 	};
 
 	const handleBack = () => {
@@ -115,11 +124,14 @@ export default function App() {
 			<div className="advdash-admin__title-bar">
 				<h1>Advisor Dashboards</h1>
 				<div className="advdash-admin__title-actions">
+					<Button variant="secondary" onClick={ () => setShowWebhook( true ) }>
+						Manage Webhook
+					</Button>
 					<Button variant="secondary" onClick={ () => setView( 'logs' ) }>
 						Webhook Log
 					</Button>
-					<Button variant="secondary" onClick={ () => setView( 'test' ) }>
-						Test Dashboard
+					<Button variant="secondary" onClick={ () => setShowTest( true ) }>
+						Test
 					</Button>
 					<Button variant="secondary" onClick={ () => setShowHelp( true ) }>
 						Help
@@ -127,17 +139,29 @@ export default function App() {
 				</div>
 			</div>
 			{ showHelp && <HelpDialog onClose={ () => setShowHelp( false ) } /> }
-			{ view === 'list' && (
-				<>
+			{ showWebhook && (
+				<Modal title="Shared Webhook" onRequestClose={ () => setShowWebhook( false ) } size="medium">
 					<SharedWebhookManager />
-					<DashboardList onEdit={ handleEdit } onCreate={ handleCreate } />
-				</>
+				</Modal>
+			) }
+			{ showCreate && (
+				<Modal title="Create New Dashboard" onRequestClose={ () => setShowCreate( false ) } size="medium">
+					<CreateDashboardDialog
+						onCreated={ handleCreated }
+						onCancel={ () => setShowCreate( false ) }
+					/>
+				</Modal>
+			) }
+			{ showTest && (
+				<Modal title="Test Dashboard" onRequestClose={ () => setShowTest( false ) } size="medium">
+					<TestContactSender />
+				</Modal>
+			) }
+			{ view === 'list' && (
+				<DashboardList key={ listKey } onEdit={ handleEdit } onCreate={ handleCreate } />
 			) }
 			{ view === 'editor' && (
 				<DashboardEditor id={ selectedId } onBack={ handleBack } />
-			) }
-			{ view === 'test' && (
-				<TestContactSender onBack={ handleBack } />
 			) }
 			{ view === 'logs' && (
 				<WebhookLogViewer onBack={ handleBack } />

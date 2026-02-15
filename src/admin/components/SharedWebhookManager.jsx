@@ -8,6 +8,7 @@ export default function SharedWebhookManager() {
 	const [ isWorking, setIsWorking ] = useState( false );
 	const [ error, setError ] = useState( null );
 	const [ copied, setCopied ] = useState( false );
+	const [ confirmAction, setConfirmAction ] = useState( null ); // 'regenerate' | 'delete' | null
 
 	const fetchWebhook = async () => {
 		setIsLoading( true );
@@ -38,16 +39,12 @@ export default function SharedWebhookManager() {
 	};
 
 	const handleRegenerate = async () => {
-		if ( ! window.confirm( 'Are you sure? This will invalidate the current webhook URL. All HighLevel workflows using the old URL will stop working.' ) ) {
-			return;
-		}
+		setConfirmAction( null );
 		await handleGenerate();
 	};
 
 	const handleDelete = async () => {
-		if ( ! window.confirm( 'Are you sure you want to delete the shared webhook? All HighLevel workflows using this URL will stop working.' ) ) {
-			return;
-		}
+		setConfirmAction( null );
 		setIsWorking( true );
 		setError( null );
 		try {
@@ -80,18 +77,11 @@ export default function SharedWebhookManager() {
 	};
 
 	if ( isLoading ) {
-		return (
-			<div className="advdash-admin__shared-webhook">
-				<h3>Shared Webhook</h3>
-				<Spinner />
-			</div>
-		);
+		return <Spinner />;
 	}
 
 	return (
 		<div className="advdash-admin__shared-webhook">
-			<h3>Shared Webhook</h3>
-
 			{ error && (
 				<Notice status="error" isDismissible onDismiss={ () => setError( null ) }>
 					{ error }
@@ -123,7 +113,7 @@ export default function SharedWebhookManager() {
 								onClick={ ( e ) => e.target.select() }
 							/>
 							<Button variant="secondary" onClick={ handleCopy }>
-								{ copied ? 'Copied!' : 'Copy' }
+								{ copied ? '\u2713 Copied!' : 'Copy URL' }
 							</Button>
 						</div>
 					</div>
@@ -148,22 +138,77 @@ export default function SharedWebhookManager() {
 					</details>
 
 					<div className="advdash-admin__webhook-actions">
-						<Button
-							variant="secondary"
-							onClick={ handleRegenerate }
-							isBusy={ isWorking }
-							disabled={ isWorking }
-						>
-							Regenerate URL
-						</Button>
-						<Button
-							variant="tertiary"
-							isDestructive
-							onClick={ handleDelete }
-							disabled={ isWorking }
-						>
-							Delete Webhook
-						</Button>
+						{ ! confirmAction && (
+							<>
+								<Button
+									variant="secondary"
+									onClick={ () => setConfirmAction( 'regenerate' ) }
+									disabled={ isWorking }
+								>
+									Regenerate URL
+								</Button>
+								<Button
+									variant="tertiary"
+									isDestructive
+									onClick={ () => setConfirmAction( 'delete' ) }
+									disabled={ isWorking }
+								>
+									Delete Webhook
+								</Button>
+							</>
+						) }
+						{ confirmAction === 'regenerate' && (
+							<div className="advdash-admin__webhook-confirm">
+								<p>
+									<strong>Are you sure?</strong> This will invalidate the current URL.
+									All HighLevel workflows using it will stop working.
+								</p>
+								<div className="advdash-admin__webhook-confirm-buttons">
+									<Button
+										variant="primary"
+										isDestructive
+										onClick={ handleRegenerate }
+										isBusy={ isWorking }
+										disabled={ isWorking }
+									>
+										Yes, Regenerate
+									</Button>
+									<Button
+										variant="tertiary"
+										onClick={ () => setConfirmAction( null ) }
+										disabled={ isWorking }
+									>
+										Cancel
+									</Button>
+								</div>
+							</div>
+						) }
+						{ confirmAction === 'delete' && (
+							<div className="advdash-admin__webhook-confirm">
+								<p>
+									<strong>Are you sure?</strong> This will delete the webhook entirely.
+									All HighLevel workflows using this URL will stop working.
+								</p>
+								<div className="advdash-admin__webhook-confirm-buttons">
+									<Button
+										variant="primary"
+										isDestructive
+										onClick={ handleDelete }
+										isBusy={ isWorking }
+										disabled={ isWorking }
+									>
+										Yes, Delete
+									</Button>
+									<Button
+										variant="tertiary"
+										onClick={ () => setConfirmAction( null ) }
+										disabled={ isWorking }
+									>
+										Cancel
+									</Button>
+								</div>
+							</div>
+						) }
 					</div>
 				</div>
 			) }

@@ -1,17 +1,78 @@
+/* -------------------------------------------------------------------------
+ * Design Tokens (on :root so portals like Modal inherit them)
+ * ---------------------------------------------------------------------- */
+
+:root {
+	--advdash-primary: #4F46E5;
+	--advdash-primary-hover: #4338CA;
+	--advdash-primary-light: #EEF2FF;
+	--advdash-primary-focus: rgba(79, 70, 229, 0.25);
+	--advdash-success: #059669;
+	--advdash-surface: #F8FAFC;
+	--advdash-border: #E2E8F0;
+	--advdash-text: #1E293B;
+	--advdash-text-muted: #64748B;
+	--advdash-code-bg: #1E293B;
+	--advdash-code-text: #E2E8F0;
+	--advdash-radius: 8px;
+	--advdash-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+	--advdash-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
 .advdash-admin {
 	max-width: 1200px;
+	padding: 24px;
+	background: var(--advdash-surface);
+	border-radius: var(--advdash-radius);
+	margin-top: 16px;
 }
+
+/* -------------------------------------------------------------------------
+ * Title Bar
+ * ---------------------------------------------------------------------- */
 
 .advdash-admin__title-bar {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 8px;
+	margin: -24px -24px 24px -24px;
+	padding: 20px 24px;
+	background: #fff;
+	border-bottom: 3px solid var(--advdash-primary);
+	border-radius: var(--advdash-radius) var(--advdash-radius) 0 0;
+	box-shadow: var(--advdash-shadow);
 }
 
 .advdash-admin__title-bar h1 {
 	margin: 0;
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--advdash-text);
+	letter-spacing: -0.01em;
 }
+
+.advdash-admin__title-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.advdash-admin__title-actions .components-button.is-secondary {
+	border-radius: 6px;
+	font-size: 13px;
+	padding: 6px 14px;
+	border-color: var(--advdash-border);
+	color: var(--advdash-text);
+}
+
+.advdash-admin__title-actions .components-button.is-secondary:hover {
+	background: var(--advdash-primary-light);
+	color: var(--advdash-primary);
+	border-color: var(--advdash-primary);
+}
+
+/* -------------------------------------------------------------------------
+ * Help Dialog
+ * ---------------------------------------------------------------------- */
 
 .advdash-admin__help h3 {
 	margin-top: 20px;
@@ -38,49 +99,56 @@
 	font-size: 12px;
 }
 
+/* -------------------------------------------------------------------------
+ * Loading
+ * ---------------------------------------------------------------------- */
+
 .advdash-admin__loading {
-	padding: 40px;
+	padding: 48px;
 	text-align: center;
+	color: var(--advdash-text-muted);
 }
 
-.advdash-admin__list-header {
-	margin-bottom: 16px;
-}
+/* -------------------------------------------------------------------------
+ * Card Pattern (shared by multiple sections)
+ * ---------------------------------------------------------------------- */
 
-.advdash-admin__editor-header {
-	margin-bottom: 20px;
-}
-
-.advdash-admin__editor-header h2 {
-	margin-top: 8px;
-}
-
-.advdash-admin__form {
-	max-width: 600px;
-	background: #fff;
-	padding: 20px;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-}
-
-.advdash-admin__form-actions {
-	display: flex;
-	gap: 8px;
-	margin-top: 16px;
-	padding-top: 16px;
-	border-top: 1px solid #e0e0e0;
-}
-
-.advdash-admin__webhook-section {
-	margin-top: 32px;
-	max-width: 600px;
-}
-
+.advdash-admin__list,
+.advdash-admin__form,
 .advdash-admin__webhook {
 	background: #fff;
-	padding: 20px;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	border: 1px solid var(--advdash-border);
+	border-radius: var(--advdash-radius);
+	box-shadow: var(--advdash-shadow);
+	padding: 24px;
+}
+
+/* -------------------------------------------------------------------------
+ * Section Headings (accent left border)
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__list-header h3,
+.advdash-admin__webhook-section > h3,
+.advdash-admin__log-header h2,
+.advdash-admin__test-header h2,
+.advdash-admin__editor-header h2 {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--advdash-text);
+	padding-left: 12px;
+	border-left: 3px solid var(--advdash-primary);
+	margin: 0 0 16px 0;
+	line-height: 1.4;
+}
+
+/* -------------------------------------------------------------------------
+ * Shared Webhook Manager
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__webhook-empty > p {
+	color: var(--advdash-text-muted);
+	font-size: 14px;
+	margin: 0 0 16px;
 }
 
 .advdash-admin__webhook-url-row {
@@ -91,6 +159,8 @@
 	display: block;
 	font-weight: 600;
 	margin-bottom: 6px;
+	color: var(--advdash-text);
+	font-size: 13px;
 }
 
 .advdash-admin__webhook-url-field {
@@ -100,21 +170,75 @@
 
 .advdash-admin__webhook-url-input {
 	flex: 1;
-	padding: 6px 10px;
-	font-family: monospace;
-	font-size: 12px;
+	padding: 10px 14px;
+	font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+	font-size: 13px;
+	background: var(--advdash-code-bg);
+	color: var(--advdash-code-text);
+	border: 1px solid #334155;
+	border-radius: 6px;
+	letter-spacing: 0.02em;
+	line-height: 1.5;
+}
+
+.advdash-admin__webhook-url-input:focus {
+	outline: none;
+	border-color: var(--advdash-primary);
+	box-shadow: 0 0 0 3px var(--advdash-primary-focus);
+}
+
+.advdash-admin__webhook-url-field .components-button.is-secondary {
+	background: var(--advdash-primary);
+	color: #fff;
+	border-color: var(--advdash-primary);
+	border-radius: 6px;
+	padding: 8px 16px;
+	font-weight: 600;
+}
+
+.advdash-admin__webhook-url-field .components-button.is-secondary:hover {
+	background: var(--advdash-primary-hover);
+	border-color: var(--advdash-primary-hover);
 }
 
 .advdash-admin__webhook-help {
-	color: #646970;
+	color: var(--advdash-text-muted);
 	font-size: 13px;
 	margin-top: 12px;
 }
 
 .advdash-admin__webhook-help code {
-	background: #f0f0f1;
-	padding: 2px 5px;
-	border-radius: 2px;
+	background: var(--advdash-primary-light);
+	color: var(--advdash-primary);
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+.advdash-admin__webhook-example {
+	margin-top: 12px;
+	border: 1px solid var(--advdash-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.advdash-admin__webhook-example summary {
+	padding: 10px 14px;
+	background: var(--advdash-primary-light);
+	cursor: pointer;
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--advdash-primary);
+}
+
+.advdash-admin__webhook-example pre {
+	margin: 0;
+	padding: 14px;
+	background: var(--advdash-code-bg);
+	color: var(--advdash-code-text);
+	font-size: 12px;
+	line-height: 1.6;
+	overflow-x: auto;
 }
 
 .advdash-admin__webhook-actions {
@@ -122,13 +246,274 @@
 	gap: 8px;
 	margin-top: 16px;
 	padding-top: 16px;
-	border-top: 1px solid #e0e0e0;
+	border-top: 1px solid var(--advdash-border);
 }
 
-.advdash-admin__title-actions {
+.advdash-admin__webhook-confirm {
+	flex: 1;
+}
+
+.advdash-admin__webhook-confirm p {
+	margin: 0 0 10px;
+	font-size: 13px;
+	color: #991B1B;
+	background: #FEF2F2;
+	padding: 10px 14px;
+	border-radius: 6px;
+	border: 1px solid #FCA5A5;
+}
+
+.advdash-admin__webhook-confirm-buttons {
 	display: flex;
 	gap: 8px;
 }
+
+/* -------------------------------------------------------------------------
+ * Dashboard List
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__list {
+	margin-bottom: 20px;
+}
+
+.advdash-admin__list-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 20px;
+}
+
+.advdash-admin__list-header .components-button.is-primary {
+	background: var(--advdash-primary);
+	border-color: var(--advdash-primary);
+	border-radius: 6px;
+	padding: 8px 20px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.advdash-admin__list-header .components-button.is-primary:hover {
+	background: var(--advdash-primary-hover);
+	border-color: var(--advdash-primary-hover);
+}
+
+.advdash-admin__list > p {
+	color: var(--advdash-text-muted);
+	font-size: 14px;
+	padding: 20px 0;
+	margin: 0;
+}
+
+/* Dashboard table overrides */
+
+.advdash-admin__list table.wp-list-table {
+	border-collapse: separate;
+	border-spacing: 0;
+	border: none;
+	width: 100%;
+}
+
+.advdash-admin__list table.wp-list-table thead th {
+	background: var(--advdash-primary);
+	color: #fff;
+	font-weight: 600;
+	font-size: 13px;
+	padding: 12px 14px;
+	border: none;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.advdash-admin__list table.wp-list-table thead th:first-child {
+	border-radius: var(--advdash-radius) 0 0 0;
+}
+
+.advdash-admin__list table.wp-list-table thead th:last-child {
+	border-radius: 0 var(--advdash-radius) 0 0;
+}
+
+.advdash-admin__list table.wp-list-table tbody td {
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--advdash-border);
+	font-size: 13px;
+	color: var(--advdash-text);
+	vertical-align: middle;
+	background: #fff;
+}
+
+.advdash-admin__list table.wp-list-table tbody tr:hover td {
+	background: var(--advdash-primary-light);
+}
+
+.advdash-admin__list table.wp-list-table tbody tr:last-child td:first-child {
+	border-radius: 0 0 0 var(--advdash-radius);
+}
+
+.advdash-admin__list table.wp-list-table tbody tr:last-child td:last-child {
+	border-radius: 0 0 var(--advdash-radius) 0;
+}
+
+/* Override WP striped row background */
+.advdash-admin__list table.wp-list-table.striped tbody tr:nth-child(odd) td {
+	background: #fff;
+}
+
+.advdash-admin__list table.wp-list-table.striped tbody tr:nth-child(odd):hover td {
+	background: var(--advdash-primary-light);
+}
+
+/* Stat badges */
+
+.advdash-admin__stat-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1.5;
+}
+
+.advdash-admin__stat-badge--registrations {
+	background: #DBEAFE;
+	color: #1E40AF;
+}
+
+.advdash-admin__stat-badge--attended {
+	background: #D1FAE5;
+	color: #065F46;
+}
+
+.advdash-admin__stat-badge--other {
+	background: #FEF3C7;
+	color: #92400E;
+}
+
+.advdash-admin__stat-badge--fed {
+	background: #FCE7F3;
+	color: #9D174D;
+}
+
+.advdash-admin__stat-badge--total {
+	background: var(--advdash-primary);
+	color: #fff;
+}
+
+/* Action pill buttons */
+
+.advdash-admin__actions {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.advdash-admin__action-btn {
+	padding: 4px 12px !important;
+	border-radius: 14px !important;
+	font-size: 12px !important;
+	font-weight: 600 !important;
+	text-decoration: none !important;
+	line-height: 1.5 !important;
+}
+
+.advdash-admin__action-btn--edit {
+	background: var(--advdash-primary-light) !important;
+	color: var(--advdash-primary) !important;
+	border: 1px solid var(--advdash-primary) !important;
+}
+
+.advdash-admin__action-btn--edit:hover {
+	background: var(--advdash-primary) !important;
+	color: #fff !important;
+}
+
+.advdash-admin__action-btn--delete {
+	background: #FEF2F2 !important;
+	color: #DC2626 !important;
+	border: 1px solid #FCA5A5 !important;
+}
+
+.advdash-admin__action-btn--delete:hover {
+	background: #DC2626 !important;
+	color: #fff !important;
+}
+
+/* -------------------------------------------------------------------------
+ * Dashboard Editor
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__editor-header {
+	margin-bottom: 20px;
+}
+
+.advdash-admin__form {
+	max-width: 600px;
+}
+
+.advdash-admin__form-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid var(--advdash-border);
+}
+
+.advdash-admin__form-actions .components-button.is-primary {
+	background: var(--advdash-primary);
+	border-color: var(--advdash-primary);
+	border-radius: 6px;
+	font-weight: 600;
+}
+
+.advdash-admin__form-actions .components-button.is-primary:hover {
+	background: var(--advdash-primary-hover);
+	border-color: var(--advdash-primary-hover);
+}
+
+.advdash-admin__webhook-section {
+	margin-top: 32px;
+	max-width: 600px;
+}
+
+.advdash-admin__webhook {
+	padding: 24px;
+}
+
+/* -------------------------------------------------------------------------
+ * Webhook Status Badges
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__webhook-status {
+	padding: 10px 14px;
+	border-radius: 6px;
+	margin-bottom: 16px;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.advdash-admin__webhook-status--active {
+	background: #D1FAE5;
+	border: 1px solid #059669;
+	color: #065F46;
+}
+
+.advdash-admin__webhook-status--inactive {
+	background: #FEF3C7;
+	border: 1px solid #D97706;
+	color: #92400E;
+}
+
+.advdash-admin__webhook-status--missing {
+	background: #FEF2F2;
+	border: 1px solid #DC2626;
+	color: #991B1B;
+}
+
+/* -------------------------------------------------------------------------
+ * Test Contact Sender
+ * ---------------------------------------------------------------------- */
 
 .advdash-admin__test-section {
 	max-width: 600px;
@@ -138,37 +523,8 @@
 	margin-bottom: 20px;
 }
 
-.advdash-admin__test-header h2 {
-	margin-top: 8px;
-}
-
 .advdash-admin__test-result {
 	margin-top: 16px;
-}
-
-.advdash-admin__webhook-status {
-	padding: 8px 12px;
-	border-radius: 4px;
-	margin-bottom: 16px;
-	font-size: 13px;
-}
-
-.advdash-admin__webhook-status--active {
-	background: #edfaef;
-	border: 1px solid #46b450;
-	color: #1e4620;
-}
-
-.advdash-admin__webhook-status--inactive {
-	background: #fef8ee;
-	border: 1px solid #f0b849;
-	color: #6e4e00;
-}
-
-.advdash-admin__webhook-status--missing {
-	background: #fcf0f1;
-	border: 1px solid #d63638;
-	color: #8a1116;
 }
 
 /* -------------------------------------------------------------------------
@@ -183,24 +539,21 @@
 	margin-bottom: 20px;
 }
 
-.advdash-admin__log-header h2 {
-	margin-top: 8px;
-}
-
 .advdash-admin__log-settings {
 	display: flex;
 	align-items: center;
 	gap: 16px;
-	padding: 10px 16px;
+	padding: 12px 16px;
 	margin-bottom: 16px;
 	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	border: 1px solid var(--advdash-border);
+	border-radius: var(--advdash-radius);
+	box-shadow: var(--advdash-shadow);
 	font-size: 13px;
 }
 
 .advdash-admin__log-retention {
-	color: #646970;
+	color: var(--advdash-text-muted);
 	font-size: 13px;
 }
 
@@ -208,8 +561,12 @@
 	display: flex;
 	align-items: flex-end;
 	flex-wrap: wrap;
-	gap: 8px;
-	margin-bottom: 16px;
+	gap: 10px;
+	margin-bottom: 20px;
+	padding: 16px;
+	background: #fff;
+	border: 1px solid var(--advdash-border);
+	border-radius: var(--advdash-radius);
 }
 
 .advdash-admin__log-filters .components-select-control {
@@ -224,27 +581,27 @@
 
 .advdash-admin__log-date-range input[type="date"] {
 	padding: 6px 10px;
-	border: 1px solid #8c8f94;
-	border-radius: 4px;
+	border: 1px solid var(--advdash-border);
+	border-radius: 6px;
 	font-size: 13px;
 	line-height: 2;
 }
 
 .advdash-admin__log-date-range input[type="date"]:focus {
 	outline: none;
-	border-color: #2271b1;
-	box-shadow: 0 0 0 1px #2271b1;
+	border-color: var(--advdash-primary);
+	box-shadow: 0 0 0 2px var(--advdash-primary-focus);
 }
 
 .advdash-admin__log-date-sep {
-	color: #646970;
+	color: var(--advdash-text-muted);
 	font-size: 13px;
 }
 
 .advdash-admin__log-search {
 	padding: 6px 10px;
-	border: 1px solid #8c8f94;
-	border-radius: 4px;
+	border: 1px solid var(--advdash-border);
+	border-radius: 6px;
 	font-size: 13px;
 	line-height: 2;
 	min-width: 180px;
@@ -252,8 +609,26 @@
 
 .advdash-admin__log-search:focus {
 	outline: none;
-	border-color: #2271b1;
-	box-shadow: 0 0 0 1px #2271b1;
+	border-color: var(--advdash-primary);
+	box-shadow: 0 0 0 2px var(--advdash-primary-focus);
+}
+
+/* Log table styling */
+
+.advdash-admin__log-table.wp-list-table thead th {
+	background: var(--advdash-primary);
+	color: #fff;
+	font-weight: 600;
+	font-size: 13px;
+	padding: 12px 14px;
+	border: none;
+}
+
+.advdash-admin__log-table.wp-list-table tbody td {
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--advdash-border);
+	font-size: 13px;
+	background: #fff;
 }
 
 .advdash-admin__log-table .advdash-admin__log-row {
@@ -261,7 +636,16 @@
 }
 
 .advdash-admin__log-table .advdash-admin__log-row:hover td {
-	background: #f0f6fc;
+	background: var(--advdash-primary-light);
+}
+
+/* Override WP striped for log table */
+.advdash-admin__log-table.wp-list-table.striped tbody tr:nth-child(odd) td {
+	background: #fff;
+}
+
+.advdash-admin__log-table.wp-list-table.striped tbody tr:nth-child(odd):hover td {
+	background: var(--advdash-primary-light);
 }
 
 .advdash-admin__log-col--datetime {
@@ -282,30 +666,32 @@
 
 .advdash-admin__log-status {
 	display: inline-block;
-	padding: 2px 8px;
-	border-radius: 10px;
-	font-size: 12px;
-	font-weight: 600;
+	padding: 3px 10px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
 	line-height: 1.4;
 }
 
 .advdash-admin__log-status--success {
-	background: #edfaef;
-	color: #1e4620;
+	background: #D1FAE5;
+	color: #065F46;
 }
 
 .advdash-admin__log-status--error {
-	background: #fcf0f1;
-	color: #8a1116;
+	background: #FEF2F2;
+	color: #991B1B;
 }
 
 .advdash-admin__log-pagination {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-top: 12px;
+	margin-top: 16px;
+	padding: 12px 0;
 	font-size: 13px;
-	color: #646970;
+	color: var(--advdash-text-muted);
 }
 
 .advdash-admin__log-pagination-buttons {
@@ -330,23 +716,24 @@
 }
 
 .advdash-admin__log-json {
-	background: #f0f0f1;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	padding: 12px;
+	background: var(--advdash-code-bg);
+	border: 1px solid #334155;
+	border-radius: 6px;
+	padding: 14px;
 	overflow-x: auto;
 	max-height: 300px;
 	overflow-y: auto;
-	font-family: Consolas, Monaco, "Courier New", monospace;
+	font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
 	font-size: 12px;
-	line-height: 1.5;
+	line-height: 1.6;
 	white-space: pre-wrap;
 	word-break: break-word;
 	margin: 0;
+	color: var(--advdash-code-text);
 }
 
 .advdash-admin__log-error {
-	color: #8a1116;
+	color: #991B1B;
 }
 
 /* -------------------------------------------------------------------------
@@ -356,7 +743,7 @@
 .advdash-admin__users-section {
 	margin-top: 16px;
 	padding-top: 16px;
-	border-top: 1px solid #e0e0e0;
+	border-top: 1px solid var(--advdash-border);
 }
 
 .advdash-admin__users-section h4 {
@@ -364,7 +751,7 @@
 }
 
 .advdash-admin__users-empty {
-	color: #646970;
+	color: var(--advdash-text-muted);
 	font-style: italic;
 	margin: 0 0 12px;
 }
@@ -379,11 +766,16 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 6px 10px;
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
-	border-radius: 3px;
-	margin-bottom: 4px;
+	padding: 8px 12px;
+	background: var(--advdash-surface);
+	border: 1px solid var(--advdash-border);
+	border-radius: 6px;
+	margin-bottom: 6px;
+	transition: background 0.15s;
+}
+
+.advdash-admin__user-list li:hover {
+	background: var(--advdash-primary-light);
 }
 
 .advdash-admin__add-user-row {
@@ -395,4 +787,113 @@
 .advdash-admin__add-user-row .components-base-control {
 	flex: 1;
 	margin-bottom: 0;
+}
+
+/* -------------------------------------------------------------------------
+ * Clickable Stat Badges
+ * ---------------------------------------------------------------------- */
+
+button.advdash-admin__stat-badge--clickable {
+	border: none;
+	cursor: pointer;
+	transition: transform 0.15s, box-shadow 0.15s;
+}
+
+button.advdash-admin__stat-badge--clickable:hover {
+	transform: scale(1.12);
+	box-shadow: var(--advdash-shadow-md);
+}
+
+button.advdash-admin__stat-badge--clickable:focus {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--advdash-primary-focus);
+}
+
+/* -------------------------------------------------------------------------
+ * Contact List Modal
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__contacts-modal-wrapper .components-modal__content {
+	padding: 16px 24px 24px;
+}
+
+.advdash-admin__contacts-modal {
+	min-height: 200px;
+}
+
+.advdash-admin__contacts-count {
+	margin: 0 0 12px;
+	font-size: 14px;
+	color: var(--advdash-text-muted);
+}
+
+.advdash-admin__contacts-empty {
+	color: var(--advdash-text-muted);
+	font-size: 14px;
+	text-align: center;
+	padding: 32px 0;
+}
+
+.advdash-admin__contacts-scroll {
+	max-height: 60vh;
+	overflow-y: auto;
+	border: 1px solid var(--advdash-border);
+	border-radius: var(--advdash-radius);
+}
+
+.advdash-admin__contacts-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.advdash-admin__contacts-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--advdash-primary);
+	color: #fff;
+	font-weight: 600;
+	padding: 10px 14px;
+	text-align: left;
+	white-space: nowrap;
+	border: none;
+}
+
+.advdash-admin__contacts-table tbody td {
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--advdash-border);
+	color: var(--advdash-text);
+	background: #fff;
+}
+
+.advdash-admin__contacts-table tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.advdash-admin__contacts-table tbody tr:hover td {
+	background: var(--advdash-primary-light);
+}
+
+.advdash-admin__contacts-truncated {
+	margin: 12px 0 0;
+	font-size: 13px;
+	color: var(--advdash-text-muted);
+	text-align: center;
+	font-style: italic;
+}
+
+/* -------------------------------------------------------------------------
+ * Global Focus States
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin .components-button:focus {
+	box-shadow: 0 0 0 3px var(--advdash-primary-focus);
+}
+
+.advdash-admin input:focus,
+.advdash-admin select:focus {
+	border-color: var(--advdash-primary);
+	box-shadow: 0 0 0 2px var(--advdash-primary-focus);
+	outline: none;
 }

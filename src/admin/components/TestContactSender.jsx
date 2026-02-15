@@ -125,15 +125,17 @@ export default function TestContactSender( { onBack } ) {
 
 	return (
 		<div className="advdash-admin__test-section">
-			<div className="advdash-admin__test-header">
-				<Button variant="link" onClick={ onBack }>
-					&larr; Back to Dashboards
-				</Button>
-				<h2>Test Dashboard</h2>
-				<p className="description">
-					Send test contacts with random data to any dashboard via the shared webhook.
-				</p>
-			</div>
+			{ onBack && (
+				<div className="advdash-admin__test-header">
+					<Button variant="link" onClick={ onBack }>
+						&larr; Back to Dashboards
+					</Button>
+					<h2>Test Dashboard</h2>
+				</div>
+			) }
+			<p className="description">
+				Send test contacts with random data to any dashboard via the shared webhook.
+			</p>
 
 			{ error && (
 				<Notice status="error" isDismissible onDismiss={ () => setError( null ) }>

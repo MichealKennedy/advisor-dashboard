@@ -1,12 +1,15 @@
 import { useState, useEffect } from '@wordpress/element';
-import { Button, Spinner, Notice } from '@wordpress/components';
+import { Button, Spinner, Notice, Modal } from '@wordpress/components';
 import { getDashboards, deleteDashboard } from '../../shared/api';
+import { TAB_CONFIG } from '../../shared/utils';
+import ContactListModal from './ContactListModal';
 
 export default function DashboardList( { onEdit, onCreate } ) {
 	const [ dashboards, setDashboards ] = useState( [] );
 	const [ isLoading, setIsLoading ] = useState( true );
 	const [ error, setError ] = useState( null );
 	const [ notice, setNotice ] = useState( null );
+	const [ contactView, setContactView ] = useState( null ); // { dashboardId, dashboardName, tabKey }
 
 	const fetchDashboards = async () => {
 		setIsLoading( true );
@@ -38,6 +41,16 @@ export default function DashboardList( { onEdit, onCreate } ) {
 		}
 	};
 
+	const handleBadgeClick = ( dashboard, tabKey ) => {
+		const tabConfig = TAB_CONFIG.find( ( t ) => t.key === tabKey );
+		setContactView( {
+			dashboardId: dashboard.id,
+			dashboardName: dashboard.name,
+			tabKey,
+			tabLabel: tabConfig?.label || tabKey,
+		} );
+	};
+
 	if ( isLoading ) {
 		return (
 			<div className="advdash-admin__loading">
@@ -59,9 +72,25 @@ export default function DashboardList( { onEdit, onCreate } ) {
 				</Notice>
 			) }
 
+			{ contactView && (
+				<Modal
+					title={ `${ contactView.dashboardName } — ${ contactView.tabLabel }` }
+					onRequestClose={ () => setContactView( null ) }
+					size="large"
+					className="advdash-admin__contacts-modal-wrapper"
+				>
+					<ContactListModal
+						dashboardId={ contactView.dashboardId }
+						dashboardName={ contactView.dashboardName }
+						tabKey={ contactView.tabKey }
+					/>
+				</Modal>
+			) }
+
 			<div className="advdash-admin__list-header">
+				<h3>Advisor Dashboards</h3>
 				<Button variant="primary" onClick={ onCreate }>
-					Add New Dashboard
+					+ Add New Dashboard
 				</Button>
 			</div>
 
@@ -91,27 +120,66 @@ export default function DashboardList( { onEdit, onCreate } ) {
 								</td>
 								<td>{ dashboard.user_display_name || '—' }</td>
 								<td>{ dashboard.member_workshop_code || '—' }</td>
-								<td>{ dashboard.tab_current_registrations || 0 }</td>
-								<td>{ dashboard.tab_attended_report || 0 }</td>
-								<td>{ dashboard.tab_attended_other || 0 }</td>
-								<td>{ dashboard.tab_fed_request || 0 }</td>
-								<td><strong>{ dashboard.contact_count }</strong></td>
+								<td>
+									<button
+										type="button"
+										className="advdash-admin__stat-badge advdash-admin__stat-badge--registrations advdash-admin__stat-badge--clickable"
+										onClick={ () => handleBadgeClick( dashboard, 'current_registrations' ) }
+									>
+										{ dashboard.tab_current_registrations || 0 }
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										className="advdash-admin__stat-badge advdash-admin__stat-badge--attended advdash-admin__stat-badge--clickable"
+										onClick={ () => handleBadgeClick( dashboard, 'attended_report' ) }
+									>
+										{ dashboard.tab_attended_report || 0 }
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										className="advdash-admin__stat-badge advdash-admin__stat-badge--other advdash-admin__stat-badge--clickable"
+										onClick={ () => handleBadgeClick( dashboard, 'attended_other' ) }
+									>
+										{ dashboard.tab_attended_other || 0 }
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										className="advdash-admin__stat-badge advdash-admin__stat-badge--fed advdash-admin__stat-badge--clickable"
+										onClick={ () => handleBadgeClick( dashboard, 'fed_request' ) }
+									>
+										{ dashboard.tab_fed_request || 0 }
+									</button>
+								</td>
+								<td>
+									<span className="advdash-admin__stat-badge advdash-admin__stat-badge--total">
+										{ dashboard.contact_count }
+									</span>
+								</td>
 								<td>{ dashboard.created_at }</td>
 								<td>
-									<Button
-										variant="link"
-										onClick={ () => onEdit( dashboard.id ) }
-									>
-										Edit
-									</Button>
-									{ ' | ' }
-									<Button
-										variant="link"
-										isDestructive
-										onClick={ () => handleDelete( dashboard.id, dashboard.name ) }
-									>
-										Delete
-									</Button>
+									<div className="advdash-admin__actions">
+										<Button
+											className="advdash-admin__action-btn advdash-admin__action-btn--edit"
+											variant="secondary"
+											onClick={ () => onEdit( dashboard.id ) }
+										>
+											Edit
+										</Button>
+										<Button
+											className="advdash-admin__action-btn advdash-admin__action-btn--delete"
+											variant="secondary"
+											isDestructive
+											onClick={ () => handleDelete( dashboard.id, dashboard.name ) }
+										>
+											Delete
+										</Button>
+									</div>
 								</td>
 							</tr>
 						) ) }
