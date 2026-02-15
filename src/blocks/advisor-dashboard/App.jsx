@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from '@wordpress/element';
+import { useState, useEffect, useCallback, useMemo } from '@wordpress/element';
 import DashboardTabs from './components/DashboardTabs';
 import { TAB_CONFIG, VALID_TABS } from '../../shared/utils';
 
@@ -14,7 +14,21 @@ export default function App() {
 		isAdmin,
 		allDashboards,
 		userDashboards,
+		customTabLabels,
 	} = window.advdashFrontend || {};
+
+	const tabs = useMemo( () => {
+		if ( ! customTabLabels || Object.keys( customTabLabels ).length === 0 ) {
+			return TAB_CONFIG;
+		}
+		return TAB_CONFIG.map( ( tab ) => {
+			const customLabel = customTabLabels[ tab.key ];
+			if ( customLabel && customLabel.trim() ) {
+				return { ...tab, label: customLabel };
+			}
+			return tab;
+		} );
+	}, [ customTabLabels ] );
 
 	const [ selectedDashboardId, setSelectedDashboardId ] = useState( initialDashboardId );
 	const [ activeTab, setActiveTab ] = useState( getTabFromHash );
@@ -90,7 +104,7 @@ export default function App() {
 				) }
 			</div>
 			<DashboardTabs
-				tabs={ TAB_CONFIG }
+				tabs={ tabs }
 				activeTab={ activeTab }
 				onTabChange={ handleTabChange }
 				dashboardId={ isAdmin || hasMultipleDashboards ? selectedDashboardId : null }

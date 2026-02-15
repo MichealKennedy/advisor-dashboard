@@ -97,6 +97,9 @@ wp_localize_script( $view_handle, 'advdashFrontend', array(
 		);
 	}, $user_dashboards ) : array(),
 	'columnPrefs'    => $column_prefs,
+	'customTabLabels' => ! empty( $attributes['customTabLabels'] )
+		? (object) $attributes['customTabLabels']
+		: new \stdClass(),
 ) );
 
 // Output the React mount point.

@@ -1,11 +1,42 @@
-import { useBlockProps } from '@wordpress/block-editor';
-import { Placeholder, Icon } from '@wordpress/components';
+import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
+import { Placeholder, Icon, PanelBody, TextControl } from '@wordpress/components';
+import { TAB_CONFIG } from '../../shared/utils';
 
-export default function Edit() {
+export default function Edit( { attributes, setAttributes } ) {
 	const blockProps = useBlockProps();
+	const { customTabLabels = {} } = attributes;
+
+	const updateTabLabel = ( tabKey, value ) => {
+		setAttributes( {
+			customTabLabels: {
+				...customTabLabels,
+				[ tabKey ]: value,
+			},
+		} );
+	};
 
 	return (
 		<div { ...blockProps }>
+			<InspectorControls>
+				<PanelBody title="Tab Names" initialOpen={ true }>
+					{ TAB_CONFIG.map( ( tab ) => (
+						<TextControl
+							key={ tab.key }
+							label={ tab.label }
+							value={ customTabLabels[ tab.key ] || '' }
+							placeholder={ tab.label }
+							onChange={ ( val ) =>
+								updateTabLabel( tab.key, val )
+							}
+							help={
+								customTabLabels[ tab.key ]
+									? `Default: ${ tab.label }`
+									: undefined
+							}
+						/>
+					) ) }
+				</PanelBody>
+			</InspectorControls>
 			<Placeholder
 				icon={ <Icon icon="businessman" /> }
 				label="Advisor Dashboard"
