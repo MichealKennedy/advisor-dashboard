@@ -6,7 +6,7 @@ export default function WebhookManager( { advisorCode } ) {
 	const [ webhook, setWebhook ] = useState( null );
 	const [ isLoading, setIsLoading ] = useState( true );
 	const [ error, setError ] = useState( null );
-	const [ copied, setCopied ] = useState( false );
+	const [ copiedField, setCopiedField ] = useState( null );
 
 	useEffect( () => {
 		setIsLoading( true );
@@ -22,23 +22,20 @@ export default function WebhookManager( { advisorCode } ) {
 			} );
 	}, [] );
 
-	const handleCopy = async () => {
-		if ( ! webhook?.webhook_url ) {
-			return;
-		}
+	const handleCopy = async ( text, field ) => {
 		try {
-			await navigator.clipboard.writeText( webhook.webhook_url );
-			setCopied( true );
-			setTimeout( () => setCopied( false ), 2000 );
+			await navigator.clipboard.writeText( text );
+			setCopiedField( field );
+			setTimeout( () => setCopiedField( null ), 2000 );
 		} catch {
 			const textarea = document.createElement( 'textarea' );
-			textarea.value = webhook.webhook_url;
+			textarea.value = text;
 			document.body.appendChild( textarea );
 			textarea.select();
 			document.execCommand( 'copy' );
 			document.body.removeChild( textarea );
-			setCopied( true );
-			setTimeout( () => setCopied( false ), 2000 );
+			setCopiedField( field );
+			setTimeout( () => setCopiedField( null ), 2000 );
 		}
 	};
 
@@ -59,7 +56,7 @@ export default function WebhookManager( { advisorCode } ) {
 			) : (
 				<div className="advdash-admin__webhook-details">
 					<div className="advdash-admin__webhook-url-row">
-						<label>Shared Webhook URL</label>
+						<label>Webhook URL</label>
 						<div className="advdash-admin__webhook-url-field">
 							<input
 								type="text"
@@ -68,16 +65,33 @@ export default function WebhookManager( { advisorCode } ) {
 								className="advdash-admin__webhook-url-input"
 								onClick={ ( e ) => e.target.select() }
 							/>
-							<Button variant="secondary" onClick={ handleCopy }>
-								{ copied ? 'Copied!' : 'Copy' }
+							<Button variant="secondary" onClick={ () => handleCopy( webhook.webhook_url, 'url' ) }>
+								{ copiedField === 'url' ? 'Copied!' : 'Copy' }
+							</Button>
+						</div>
+					</div>
+
+					<div className="advdash-admin__webhook-url-row">
+						<label>Webhook Key</label>
+						<div className="advdash-admin__webhook-url-field">
+							<input
+								type="text"
+								readOnly
+								value={ webhook.webhook_key }
+								className="advdash-admin__webhook-url-input"
+								onClick={ ( e ) => e.target.select() }
+							/>
+							<Button variant="secondary" onClick={ () => handleCopy( webhook.webhook_key, 'key' ) }>
+								{ copiedField === 'key' ? 'Copied!' : 'Copy' }
 							</Button>
 						</div>
 					</div>
 
 					{ advisorCode ? (
 						<p className="advdash-admin__webhook-help">
-							Include <code>{ `"advisor_code": "${ advisorCode }"` }</code> in your
-							HighLevel webhook payload to route contacts to this dashboard.
+							In HighLevel, set the URL above and add the key as a custom header
+							named <code>X-Webhook-Key</code>. Include <code>{ `"advisor_code": "${ advisorCode }"` }</code> in
+							the payload to route contacts to this dashboard.
 						</p>
 					) : (
 						<Notice status="warning" isDismissible={ false }>

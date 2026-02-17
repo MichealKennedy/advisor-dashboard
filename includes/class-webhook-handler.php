@@ -121,10 +121,36 @@ class AdvDash_Webhook_Handler {
 		$this->manager = $manager;
 	}
 
+	/**
+	 * Get the client IP address, checking proxy headers if trusted.
+	 */
+	private static function get_client_ip() {
+		$trust_proxy = apply_filters( 'advdash_trust_proxy_headers', false );
+
+		if ( $trust_proxy ) {
+			if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+				$forwarded = explode( ',', $_SERVER['HTTP_X_FORWARDED_FOR'] );
+				$ip        = trim( $forwarded[0] );
+				if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+					return $ip;
+				}
+			}
+
+			if ( ! empty( $_SERVER['HTTP_X_REAL_IP'] ) ) {
+				$ip = trim( $_SERVER['HTTP_X_REAL_IP'] );
+				if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+					return $ip;
+				}
+			}
+		}
+
+		return isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+	}
+
 	public function handle_webhook( WP_REST_Request $request ) {
 		$raw_body    = $request->get_body();
-		$webhook_key = $request->get_param( 'webhook_key' );
-		$ip_address  = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
+		$webhook_key = $request->get_header( 'X_Webhook_Key' );
+		$ip_address  = self::get_client_ip();
 
 		$result = $this->process_webhook( $request );
 
@@ -136,10 +162,10 @@ class AdvDash_Webhook_Handler {
 	}
 
 	private function process_webhook( WP_REST_Request $request ) {
-		$webhook_key = $request->get_param( 'webhook_key' );
+		$webhook_key = $request->get_header( 'X_Webhook_Key' );
 
 		// 0. IP-based rate limiting — prevent log flooding from invalid key spam.
-		$ip_address  = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+		$ip_address  = self::get_client_ip();
 		$ip_rate_key = 'advdash_ip_' . md5( $ip_address );
 		$ip_count    = (int) get_transient( $ip_rate_key );
 
@@ -149,7 +175,11 @@ class AdvDash_Webhook_Handler {
 
 		set_transient( $ip_rate_key, $ip_count + 1, 60 );
 
-		// 1. Validate shared webhook key.
+		// 1. Validate shared webhook key (sent via X-Webhook-Key header).
+		if ( empty( $webhook_key ) || ! preg_match( '/^[a-f0-9]{64}$/', $webhook_key ) ) {
+			return new WP_Error( 'invalid_key', 'Invalid webhook key.', array( 'status' => 404 ) );
+		}
+
 		$stored_key = $this->manager->get_shared_webhook_key();
 
 		if ( empty( $stored_key ) || ! hash_equals( $stored_key, $webhook_key ) ) {
@@ -192,9 +222,10 @@ class AdvDash_Webhook_Handler {
 		$dashboard = $this->manager->get_dashboard_by_workshop_code( $advisor_code );
 
 		if ( ! $dashboard ) {
+			error_log( '[AdvDash] Webhook: no dashboard found for advisor_code: ' . sanitize_text_field( $advisor_code ) );
 			return new WP_Error(
 				'unknown_advisor_code',
-				'No dashboard found for advisor_code: ' . $advisor_code,
+				'Invalid request.',
 				array( 'status' => 404 )
 			);
 		}
@@ -205,9 +236,10 @@ class AdvDash_Webhook_Handler {
 		$action = isset( $body['action'] ) ? sanitize_text_field( $body['action'] ) : '';
 
 		if ( ! in_array( $action, self::$valid_actions, true ) ) {
+			error_log( '[AdvDash] Webhook: invalid action "' . sanitize_text_field( $action ) . '" received.' );
 			return new WP_Error(
 				'invalid_action',
-				'The "action" field is required and must be one of: ' . implode( ', ', self::$valid_actions ),
+				'The "action" field is required and must be a valid action.',
 				array( 'status' => 400 )
 			);
 		}

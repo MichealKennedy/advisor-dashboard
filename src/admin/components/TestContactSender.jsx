@@ -59,7 +59,10 @@ export default function TestContactSender( { onBack } ) {
 			try {
 				const response = await fetch( webhook.webhook_url, {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Webhook-Key': webhook.webhook_key,
+					},
 					body: JSON.stringify( payload ),
 				} );
 				if ( response.ok ) {
@@ -79,7 +82,7 @@ export default function TestContactSender( { onBack } ) {
 		setIsSending( false );
 	};
 
-	const canSend = webhook?.webhook_url && advisorCode && selectedDashboardId && ! isSending;
+	const canSend = webhook?.webhook_url && webhook?.webhook_key && advisorCode && selectedDashboardId && ! isSending;
 
 	const dashboardOptions = [
 		{ label: '-- Select a dashboard --', value: '' },

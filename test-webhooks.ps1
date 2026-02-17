@@ -1,4 +1,6 @@
-$webhookUrl = "http://fedpunch.local/wp-json/advisor-dashboard/v1/webhook/61ff5cf27e7fd373fd3382ae4d695ea8bf23b587d5d805f279891ff8347a1259"
+$webhookUrl = "http://fedpunch.local/wp-json/advisor-dashboard/v1/webhook"
+$webhookKey = "61ff5cf27e7fd373fd3382ae4d695ea8bf23b587d5d805f279891ff8347a1259"
+$webhookHeaders = @{ 'Content-Type' = 'application/json'; 'X-Webhook-Key' = $webhookKey }
 
 $contacts = @(
     # --- current_registrations (5) ---
@@ -37,7 +39,7 @@ foreach ($contact in $contacts) {
     Write-Host "[$count/20] Sending $($contact.tab) - $($contact.first_name) $($contact.last_name)..."
 
     try {
-        $response = Invoke-RestMethod -Method POST -Uri $webhookUrl -ContentType "application/json" -Body $json
+        $response = Invoke-RestMethod -Method POST -Uri $webhookUrl -Headers $webhookHeaders -Body $json
         Write-Host "  OK: $($response.action) - $($response.contact_id)" -ForegroundColor Green
     } catch {
         Write-Host "  FAILED: $($_.Exception.Message)" -ForegroundColor Red

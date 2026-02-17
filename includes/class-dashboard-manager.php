@@ -244,11 +244,7 @@ class AdvDash_Dashboard_Manager {
 	}
 
 	public function get_shared_webhook_url() {
-		$key = $this->get_shared_webhook_key();
-		if ( empty( $key ) ) {
-			return '';
-		}
-		return rest_url( 'advisor-dashboard/v1/webhook/' . $key );
+		return rest_url( 'advisor-dashboard/v1/webhook' );
 	}
 
 	/* -------------------------------------------------------------------------

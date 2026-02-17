@@ -17,5 +17,8 @@ delete_option( 'advdash_shared_webhook_key' );
 delete_option( 'advdash_webhook_logging' );
 delete_option( 'advdash_webhook_log_retention_days' );
 
+// Remove user meta created by the plugin.
+$wpdb->delete( $wpdb->usermeta, array( 'meta_key' => 'advdash_column_prefs' ), array( '%s' ) );
+
 // Clear scheduled events.
 wp_clear_scheduled_hook( 'advdash_daily_log_cleanup' );

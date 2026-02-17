@@ -16,18 +16,10 @@ class AdvDash_Rest_API {
 
 	public function register_routes() {
 		// ----- Webhook (public, key-based auth) -----
-		register_rest_route( $this->namespace, '/webhook/(?P<webhook_key>[a-f0-9]{64})', array(
+		register_rest_route( $this->namespace, '/webhook', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this->webhook_handler, 'handle_webhook' ),
 			'permission_callback' => '__return_true',
-			'args'                => array(
-				'webhook_key' => array(
-					'required'          => true,
-					'validate_callback' => function ( $param ) {
-						return (bool) preg_match( '/^[a-f0-9]{64}$/', $param );
-					},
-				),
-			),
 		) );
 
 		// ----- Admin: Dashboard CRUD (manage_options) -----
