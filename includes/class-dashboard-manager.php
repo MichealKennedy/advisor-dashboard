@@ -723,4 +723,45 @@ class AdvDash_Dashboard_Manager {
 
 		return $wpdb->query( "TRUNCATE TABLE {$this->table_webhook_logs}" );
 	}
+
+	/**
+	 * Count recent webhook failures, excluding noise error codes.
+	 *
+	 * @param int $window_minutes How many minutes to look back.
+	 * @return int
+	 */
+	public function count_recent_failures( $window_minutes = 15 ) {
+		global $wpdb;
+
+		return (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$this->table_webhook_logs}
+			 WHERE error_code IS NOT NULL
+			 AND error_code NOT IN ('rate_limited', 'invalid_key')
+			 AND created_at >= DATE_SUB(NOW(), INTERVAL %d MINUTE)",
+			absint( $window_minutes )
+		) );
+	}
+
+	/**
+	 * Get a summary of recent failures grouped by error code.
+	 *
+	 * @param int $window_minutes How many minutes to look back.
+	 * @return array Array of objects with error_code and count.
+	 */
+	public function get_recent_failure_summary( $window_minutes = 15 ) {
+		global $wpdb;
+
+		$results = $wpdb->get_results( $wpdb->prepare(
+			"SELECT error_code, COUNT(*) AS count
+			 FROM {$this->table_webhook_logs}
+			 WHERE error_code IS NOT NULL
+			 AND error_code NOT IN ('rate_limited', 'invalid_key')
+			 AND created_at >= DATE_SUB(NOW(), INTERVAL %d MINUTE)
+			 GROUP BY error_code
+			 ORDER BY count DESC",
+			absint( $window_minutes )
+		) );
+
+		return $results ? $results : array();
+	}
 }

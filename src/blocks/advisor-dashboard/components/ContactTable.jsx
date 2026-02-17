@@ -29,6 +29,7 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 	const [ debouncedSearch, setDebouncedSearch ] = useState( '' );
 	const [ isExporting, setIsExporting ] = useState( false );
 	const [ selectedContact, setSelectedContact ] = useState( null );
+	const [ refreshKey, setRefreshKey ] = useState( 0 );
 
 	// Column visibility state (persisted to server via user meta, cached in localStorage).
 	const colVisKey = `advdash_colvis_${ tab }`;
@@ -104,7 +105,7 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 		getFilterDates( tab, dateFilterField, dashboardId )
 			.then( setDateOptions )
 			.catch( () => setDateOptions( [] ) );
-	}, [ tab, dateFilterField, dashboardId ] );
+	}, [ tab, dateFilterField, dashboardId, refreshKey ] );
 
 	// Debounce search input.
 	useEffect( () => {
@@ -146,7 +147,7 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 			setError( err.message || 'Failed to load contacts.' );
 		}
 		setIsLoading( false );
-	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dateFilter, dateFilterField, defaultSort.key, dashboardId ] );
+	}, [ tab, pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dateFilter, dateFilterField, defaultSort.key, dashboardId, refreshKey ] );
 
 	useEffect( () => {
 		fetchData();
@@ -167,7 +168,7 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 		getContactSummary( params )
 			.then( setSummary )
 			.catch( () => setSummary( null ) );
-	}, [ tab, debouncedSearch, dateFilter, dateFilterField, dashboardId ] );
+	}, [ tab, debouncedSearch, dateFilter, dateFilterField, dashboardId, refreshKey ] );
 
 	// Format a breakdown array into "Option (count), ..." display.
 	const formatBreakdown = ( items ) => {
@@ -352,6 +353,14 @@ export default function ContactTable( { tab, columns, pinnedColumns, defaultSort
 					columnVisibility={ columnVisibility }
 					onColumnVisibilityChange={ setColumnVisibility }
 				/>
+				<button
+					className="advdash__refresh-btn"
+					onClick={ () => setRefreshKey( ( k ) => k + 1 ) }
+					disabled={ isLoading }
+					title="Refresh data"
+				>
+					{ isLoading ? 'Refreshing...' : 'Refresh' }
+				</button>
 				<button
 					className="advdash__export-btn"
 					onClick={ handleExport }

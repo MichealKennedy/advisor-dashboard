@@ -1,0 +1,49 @@
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Stage distribution files
+        run: |
+          mkdir -p dist/advisor-dashboard
+          cp advisor-dashboard.php dist/advisor-dashboard/
+          cp uninstall.php dist/advisor-dashboard/
+          cp readme.txt dist/advisor-dashboard/
+          cp -r includes dist/advisor-dashboard/
+          cp -r admin dist/advisor-dashboard/
+          cp -r build dist/advisor-dashboard/
+
+      - name: Create ZIP
+        working-directory: dist
+        run: zip -r ../advisor-dashboard.zip advisor-dashboard/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: advisor-dashboard.zip
+          generate_release_notes: true

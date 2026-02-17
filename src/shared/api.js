@@ -160,3 +160,14 @@ export const getWebhookLoggingSettings = () =>
 
 export const setWebhookLoggingSettings = ( data ) =>
 	apiFetch( { path: '/advisor-dashboard/v1/settings/webhook-logging', method: 'PUT', data } );
+
+/* ---- Failure Alert Settings ---- */
+
+export const getFailureAlertSettings = () =>
+	apiFetch( { path: '/advisor-dashboard/v1/settings/failure-alerts' } );
+
+export const setFailureAlertSettings = ( data ) =>
+	apiFetch( { path: '/advisor-dashboard/v1/settings/failure-alerts', method: 'PUT', data } );
+
+export const testFailureAlert = () =>
+	apiFetch( { path: '/advisor-dashboard/v1/settings/failure-alerts/test', method: 'POST' } );

@@ -187,6 +187,27 @@
 	cursor: not-allowed;
 }
 
+.advdash__refresh-btn {
+	padding: 8px 16px;
+	background: var(--advdash-bg);
+	border: 1px solid var(--advdash-border);
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+	color: var(--advdash-text);
+	white-space: nowrap;
+	transition: background 0.15s;
+}
+
+.advdash__refresh-btn:hover:not(:disabled) {
+	background: var(--advdash-bg-hover);
+}
+
+.advdash__refresh-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 /* Summary bar */
 .advdash__summary-bar {
 	display: flex;

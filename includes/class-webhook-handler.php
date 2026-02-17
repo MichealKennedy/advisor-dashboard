@@ -158,6 +158,19 @@ class AdvDash_Webhook_Handler {
 			$this->log_result( $webhook_key, $raw_body, $ip_address, $result );
 		}
 
+		// Check failure threshold for outbound alert (only on real integration failures).
+		if ( is_wp_error( $result ) ) {
+			$error_code = $result->get_error_code();
+			$excluded   = array( 'rate_limited', 'invalid_key' );
+			if ( ! in_array( $error_code, $excluded, true ) ) {
+				$this->maybe_send_failure_alert( array(
+					'error_code'    => $error_code,
+					'error_message' => $result->get_error_message(),
+					'ip_address'    => $ip_address,
+				) );
+			}
+		}
+
 		return $result;
 	}
 
@@ -551,5 +564,61 @@ class AdvDash_Webhook_Handler {
 			'response_body'     => $response_body,
 			'ip_address'        => $ip_address,
 		) );
+	}
+
+	/**
+	 * Send an outbound webhook to HighLevel when failures exceed a threshold.
+	 *
+	 * @param array $log_data Context about the current failure.
+	 */
+	private function maybe_send_failure_alert( $log_data ) {
+		$alert_url = get_option( 'advdash_failure_alert_url', '' );
+		if ( empty( $alert_url ) ) {
+			return;
+		}
+
+		// Skip if an alert was sent recently (cooldown).
+		if ( get_transient( 'advdash_failure_alert_cooldown' ) ) {
+			return;
+		}
+
+		$threshold = max( 1, (int) get_option( 'advdash_failure_alert_threshold', 5 ) );
+		$window    = max( 1, (int) get_option( 'advdash_failure_alert_window', 15 ) );
+
+		$failure_count = $this->manager->count_recent_failures( $window );
+		if ( $failure_count < $threshold ) {
+			return;
+		}
+
+		$summary = $this->manager->get_recent_failure_summary( $window );
+
+		$payload = array(
+			'alert_type'     => 'webhook_failure_threshold',
+			'site_url'       => home_url(),
+			'site_name'      => get_bloginfo( 'name' ),
+			'failure_count'  => $failure_count,
+			'threshold'      => $threshold,
+			'window_minutes' => $window,
+			'error_summary'  => $summary,
+			'latest_error'   => array(
+				'error_code'    => isset( $log_data['error_code'] ) ? $log_data['error_code'] : null,
+				'error_message' => isset( $log_data['error_message'] ) ? $log_data['error_message'] : null,
+				'ip_address'    => isset( $log_data['ip_address'] ) ? $log_data['ip_address'] : null,
+			),
+			'timestamp'      => gmdate( 'Y-m-d\TH:i:s\Z' ),
+			'admin_url'      => admin_url( 'admin.php?page=advisor-dashboard' ),
+		);
+
+		wp_remote_post( $alert_url, array(
+			'timeout'     => 10,
+			'body'        => wp_json_encode( $payload ),
+			'headers'     => array( 'Content-Type' => 'application/json' ),
+			'redirection' => 0,
+			'blocking'    => false,
+		) );
+
+		// Set cooldown regardless of response to prevent alert flooding.
+		$cooldown_minutes = max( 1, (int) get_option( 'advdash_failure_alert_cooldown', 60 ) );
+		set_transient( 'advdash_failure_alert_cooldown', 1, $cooldown_minutes * MINUTE_IN_SECONDS );
 	}
 }

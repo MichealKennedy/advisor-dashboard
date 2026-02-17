@@ -46,6 +46,7 @@ export default function WebhookLogViewer( { onBack } ) {
 	const [ selectedLogId, setSelectedLogId ] = useState( null );
 
 	const searchTimer = useRef( null );
+	const retentionTimer = useRef( null );
 	const [ debouncedSearch, setDebouncedSearch ] = useState( '' );
 
 	// Debounce search input.
@@ -113,6 +114,15 @@ export default function WebhookLogViewer( { onBack } ) {
 		setWebhookLoggingSettings( { enabled, retention_days: retentionDays } ).catch(
 			() => setLoggingEnabled( ! enabled )
 		);
+	};
+
+	const handleRetentionChange = ( value ) => {
+		const days = Math.max( 7, Math.min( 365, parseInt( value, 10 ) || 90 ) );
+		setRetentionDays( days );
+		clearTimeout( retentionTimer.current );
+		retentionTimer.current = setTimeout( () => {
+			setWebhookLoggingSettings( { enabled: loggingEnabled, retention_days: days } );
+		}, 800 );
 	};
 
 	const handleClearLogs = () => {
@@ -186,7 +196,16 @@ export default function WebhookLogViewer( { onBack } ) {
 							__nextHasNoMarginBottom
 						/>
 						<span className="advdash-admin__log-retention">
-							Retention: { retentionDays } days
+							Retention:
+							<input
+								type="number"
+								className="advdash-admin__log-retention-input"
+								min="7"
+								max="365"
+								value={ retentionDays }
+								onChange={ ( e ) => handleRetentionChange( e.target.value ) }
+							/>
+							days
 						</span>
 						{ loggingEnabled && (
 							<p style={ { margin: '4px 0 0', fontSize: '12px', color: '#756b00' } }>

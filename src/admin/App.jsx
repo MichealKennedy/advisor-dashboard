@@ -6,6 +6,7 @@ import TestContactSender from './components/TestContactSender';
 import WebhookLogViewer from './components/WebhookLogViewer';
 import SharedWebhookManager from './components/SharedWebhookManager';
 import CreateDashboardDialog from './components/CreateDashboardDialog';
+import FailureAlertSettings from './components/FailureAlertSettings';
 
 function HelpDialog( { onClose } ) {
 	return (
@@ -99,6 +100,7 @@ export default function App() {
 	const [ showWebhook, setShowWebhook ] = useState( false );
 	const [ showCreate, setShowCreate ] = useState( false );
 	const [ showTest, setShowTest ] = useState( false );
+	const [ showAlerts, setShowAlerts ] = useState( false );
 	const [ listKey, setListKey ] = useState( 0 );
 
 	const handleEdit = ( id ) => {
@@ -133,6 +135,9 @@ export default function App() {
 					<Button variant="secondary" onClick={ () => setShowTest( true ) }>
 						Test
 					</Button>
+					<Button variant="secondary" onClick={ () => setShowAlerts( true ) }>
+						Alerts
+					</Button>
 					<Button variant="secondary" onClick={ () => setShowHelp( true ) }>
 						Help
 					</Button>
@@ -155,6 +160,11 @@ export default function App() {
 			{ showTest && (
 				<Modal title="Test Dashboard" onRequestClose={ () => setShowTest( false ) } size="medium">
 					<TestContactSender />
+				</Modal>
+			) }
+			{ showAlerts && (
+				<Modal title="Failure Alert Settings" onRequestClose={ () => setShowAlerts( false ) } size="medium">
+					<FailureAlertSettings />
 				</Modal>
 			) }
 			{ view === 'list' && (

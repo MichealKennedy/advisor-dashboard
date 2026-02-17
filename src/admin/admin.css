@@ -553,8 +553,20 @@
 }
 
 .advdash-admin__log-retention {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	color: var(--advdash-text-muted);
 	font-size: 13px;
+}
+
+.advdash-admin__log-retention-input {
+	width: 60px;
+	padding: 4px 8px;
+	border: 1px solid var(--advdash-border);
+	border-radius: 4px;
+	font-size: 13px;
+	text-align: center;
 }
 
 .advdash-admin__log-filters {
@@ -881,6 +893,31 @@ button.advdash-admin__stat-badge--clickable:focus {
 	color: var(--advdash-text-muted);
 	text-align: center;
 	font-style: italic;
+}
+
+/* -------------------------------------------------------------------------
+ * Failure Alert Settings
+ * ---------------------------------------------------------------------- */
+
+.advdash-admin__failure-alerts-desc {
+	color: var(--advdash-text-muted);
+	font-size: 13px;
+	margin: 0 0 16px;
+}
+
+.advdash-admin__failure-alerts-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.advdash-admin__failure-alerts-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid var(--advdash-border);
 }
 
 /* -------------------------------------------------------------------------

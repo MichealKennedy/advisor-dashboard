@@ -165,6 +165,32 @@ class AdvDash_Rest_API {
 			),
 		) );
 
+		// ----- Admin: Failure alert settings -----
+		register_rest_route( $this->namespace, '/settings/failure-alerts', array(
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_failure_alert_settings' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+			),
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( $this, 'set_failure_alert_settings' ),
+				'permission_callback' => array( $this, 'check_admin' ),
+				'args'                => array(
+					'url'       => array( 'type' => 'string', 'required' => false ),
+					'threshold' => array( 'type' => 'integer', 'required' => false ),
+					'window'    => array( 'type' => 'integer', 'required' => false ),
+					'cooldown'  => array( 'type' => 'integer', 'required' => false ),
+				),
+			),
+		) );
+
+		register_rest_route( $this->namespace, '/settings/failure-alerts/test', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'test_failure_alert' ),
+			'permission_callback' => array( $this, 'check_admin' ),
+		) );
+
 		// ----- Frontend: My Dashboard (logged-in user) -----
 		register_rest_route( $this->namespace, '/my-dashboard', array(
 			'methods'             => 'GET',
@@ -737,6 +763,69 @@ class AdvDash_Rest_API {
 		return new WP_REST_Response( array(
 			'enabled'        => (bool) $enabled,
 			'retention_days' => (int) get_option( 'advdash_webhook_log_retention_days', 90 ),
+		), 200 );
+	}
+
+	public function get_failure_alert_settings( WP_REST_Request $request ) {
+		return new WP_REST_Response( array(
+			'url'             => get_option( 'advdash_failure_alert_url', '' ),
+			'threshold'       => (int) get_option( 'advdash_failure_alert_threshold', 5 ),
+			'window'          => (int) get_option( 'advdash_failure_alert_window', 15 ),
+			'cooldown'        => (int) get_option( 'advdash_failure_alert_cooldown', 60 ),
+			'logging_enabled' => get_option( 'advdash_webhook_logging', '0' ) === '1',
+		), 200 );
+	}
+
+	public function set_failure_alert_settings( WP_REST_Request $request ) {
+		if ( $request->has_param( 'url' ) ) {
+			$url = esc_url_raw( $request->get_param( 'url' ) );
+			update_option( 'advdash_failure_alert_url', $url );
+		}
+		if ( $request->has_param( 'threshold' ) ) {
+			$threshold = max( 1, min( 100, (int) $request->get_param( 'threshold' ) ) );
+			update_option( 'advdash_failure_alert_threshold', $threshold );
+		}
+		if ( $request->has_param( 'window' ) ) {
+			$window = max( 1, min( 1440, (int) $request->get_param( 'window' ) ) );
+			update_option( 'advdash_failure_alert_window', $window );
+		}
+		if ( $request->has_param( 'cooldown' ) ) {
+			$cooldown = max( 1, min( 1440, (int) $request->get_param( 'cooldown' ) ) );
+			update_option( 'advdash_failure_alert_cooldown', $cooldown );
+		}
+
+		return $this->get_failure_alert_settings( $request );
+	}
+
+	public function test_failure_alert( WP_REST_Request $request ) {
+		$url = get_option( 'advdash_failure_alert_url', '' );
+		if ( empty( $url ) ) {
+			return new WP_Error( 'no_url', 'No failure alert URL configured.', array( 'status' => 400 ) );
+		}
+
+		$payload = array(
+			'alert_type' => 'test',
+			'site_url'   => home_url(),
+			'site_name'  => get_bloginfo( 'name' ),
+			'message'    => 'This is a test alert from the Advisor Dashboard plugin.',
+			'timestamp'  => gmdate( 'Y-m-d\TH:i:s\Z' ),
+		);
+
+		$response = wp_remote_post( $url, array(
+			'timeout'     => 15,
+			'body'        => wp_json_encode( $payload ),
+			'headers'     => array( 'Content-Type' => 'application/json' ),
+			'redirection' => 0,
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'send_failed', $response->get_error_message(), array( 'status' => 502 ) );
+		}
+
+		$status = wp_remote_retrieve_response_code( $response );
+		return new WP_REST_Response( array(
+			'success'     => $status >= 200 && $status < 300,
+			'status_code' => $status,
 		), 200 );
 	}
 }
