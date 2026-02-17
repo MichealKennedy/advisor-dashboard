@@ -30,17 +30,17 @@ jobs:
 
       - name: Stage distribution files
         run: |
-          mkdir -p dist/advisor-dashboard
-          cp advisor-dashboard.php dist/advisor-dashboard/
-          cp uninstall.php dist/advisor-dashboard/
-          cp readme.txt dist/advisor-dashboard/
-          cp -r includes dist/advisor-dashboard/
-          cp -r admin dist/advisor-dashboard/
-          cp -r build dist/advisor-dashboard/
+          mkdir -p pkg/advisor-dashboard
+          cp advisor-dashboard.php pkg/advisor-dashboard/
+          cp uninstall.php pkg/advisor-dashboard/
+          cp readme.txt pkg/advisor-dashboard/
+          cp -r includes pkg/advisor-dashboard/
+          cp -r admin pkg/advisor-dashboard/
+          cp -r build pkg/advisor-dashboard/
 
       - name: Create ZIP
-        working-directory: dist
-        run: zip -r ../advisor-dashboard.zip advisor-dashboard/
+        working-directory: pkg
+        run: zip -r ../advisor-dashboard.zip advisor-dashboard
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
