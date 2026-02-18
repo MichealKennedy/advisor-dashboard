@@ -243,6 +243,16 @@ class AdvDash_Webhook_Handler {
 			);
 		}
 
+		// 5b. Reject if dashboard is inactive.
+		if ( empty( $dashboard->is_active ) || (int) $dashboard->is_active !== 1 ) {
+			error_log( '[AdvDash] Webhook: dashboard inactive for advisor_code: ' . sanitize_text_field( $advisor_code ) );
+			return new WP_Error(
+				'unknown_advisor_code',
+				'Invalid request.',
+				array( 'status' => 404 )
+			);
+		}
+
 		$dashboard_id = (int) $dashboard->id;
 
 		// 6. Extract action (required).

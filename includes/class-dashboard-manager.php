@@ -80,7 +80,7 @@ class AdvDash_Dashboard_Manager {
 		return $wpdb->get_row( $wpdb->prepare(
 			"SELECT d.* FROM {$this->table_dashboards} d
 			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
-			 WHERE du.wp_user_id = %d
+			 WHERE du.wp_user_id = %d AND d.is_active = 1
 			 LIMIT 1",
 			$wp_user_id
 		) );
@@ -92,7 +92,7 @@ class AdvDash_Dashboard_Manager {
 		return $wpdb->get_results( $wpdb->prepare(
 			"SELECT d.* FROM {$this->table_dashboards} d
 			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
-			 WHERE du.wp_user_id = %d
+			 WHERE du.wp_user_id = %d AND d.is_active = 1
 			 ORDER BY d.name ASC",
 			$wp_user_id
 		) );
@@ -141,6 +141,11 @@ class AdvDash_Dashboard_Manager {
 		if ( isset( $data['member_workshop_code'] ) ) {
 			$update['member_workshop_code'] = sanitize_text_field( $data['member_workshop_code'] );
 			$format[]                       = '%s';
+		}
+
+		if ( isset( $data['is_active'] ) ) {
+			$update['is_active'] = absint( $data['is_active'] ) ? 1 : 0;
+			$format[]            = '%d';
 		}
 
 		if ( empty( $update ) ) {

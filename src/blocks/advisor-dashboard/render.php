@@ -23,10 +23,12 @@ $table_users      = $wpdb->prefix . 'advdash_dashboard_users';
 $is_admin         = current_user_can( 'manage_options' );
 
 // Find dashboards assigned to this user via junction table.
+// Non-admin users only see active dashboards.
+$active_filter = $is_admin ? '' : 'AND d.is_active = 1';
 $user_dashboards = $wpdb->get_results( $wpdb->prepare(
 	"SELECT d.id, d.name FROM {$table_dashboards} d
 	 INNER JOIN {$table_users} du ON du.dashboard_id = d.id
-	 WHERE du.wp_user_id = %d
+	 WHERE du.wp_user_id = %d {$active_filter}
 	 ORDER BY d.name ASC",
 	$user_id
 ) );
@@ -37,12 +39,12 @@ $dashboard = ! empty( $user_dashboards ) ? $user_dashboards[0] : null;
 $all_dashboards = array();
 if ( $is_admin ) {
 	$all_dashboards = $wpdb->get_results(
-		"SELECT d.id, d.name,
+		"SELECT d.id, d.name, d.is_active,
 			GROUP_CONCAT(u.display_name ORDER BY du.created_at SEPARATOR ', ') AS user_display_name
 		 FROM {$table_dashboards} d
 		 LEFT JOIN {$table_users} du ON du.dashboard_id = d.id
 		 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
-		 GROUP BY d.id, d.name
+		 GROUP BY d.id, d.name, d.is_active
 		 ORDER BY d.name ASC"
 	);
 }
@@ -85,9 +87,10 @@ wp_localize_script( $view_handle, 'advdashFrontend', array(
 	'isAdmin'        => $is_admin,
 	'allDashboards'  => $is_admin ? array_map( function( $d ) {
 		return array(
-			'id'   => (int) $d->id,
-			'name' => $d->name,
-			'user' => $d->user_display_name,
+			'id'        => (int) $d->id,
+			'name'      => $d->name,
+			'user'      => $d->user_display_name,
+			'is_active' => (bool) $d->is_active,
 		);
 	}, $all_dashboards ) : array(),
 	'userDashboards' => ! $is_admin ? array_map( function( $d ) {

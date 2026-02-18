@@ -1,6 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
-import { Button, Spinner, Notice, Modal } from '@wordpress/components';
-import { getDashboards, deleteDashboard } from '../../shared/api';
+import { Button, Spinner, Notice, Modal, ToggleControl } from '@wordpress/components';
+import { getDashboards, deleteDashboard, updateDashboard } from '../../shared/api';
 import { TAB_CONFIG } from '../../shared/utils';
 import ContactListModal from './ContactListModal';
 
@@ -49,6 +49,23 @@ export default function DashboardList( { onEdit, onCreate } ) {
 			tabKey,
 			tabLabel: tabConfig?.label || tabKey,
 		} );
+	};
+
+	const handleToggleActive = async ( dashboard ) => {
+		const newActive = ! Number( dashboard.is_active );
+		try {
+			await updateDashboard( dashboard.id, { is_active: newActive } );
+			setDashboards( ( prev ) =>
+				prev.map( ( d ) =>
+					d.id === dashboard.id ? { ...d, is_active: newActive ? 1 : 0 } : d
+				)
+			);
+			setNotice(
+				`"${ dashboard.name }" is now ${ newActive ? 'active' : 'inactive' }.`
+			);
+		} catch ( err ) {
+			setError( err.message || 'Failed to update dashboard status.' );
+		}
 	};
 
 	if ( isLoading ) {
@@ -102,9 +119,10 @@ export default function DashboardList( { onEdit, onCreate } ) {
 						<tr>
 							<th>Name</th>
 							<th>Advisors</th>
-							<th>Workshop Code</th>
-							<th>Registrations</th>
-							<th>Attended &amp; Report</th>
+							<th>Code</th>
+							<th>Status</th>
+							<th>Regs</th>
+							<th>Said Yes</th>
 							<th>Attended Other</th>
 							<th>Fed Request</th>
 							<th>Total</th>
@@ -120,6 +138,14 @@ export default function DashboardList( { onEdit, onCreate } ) {
 								</td>
 								<td>{ dashboard.user_display_name || '—' }</td>
 								<td>{ dashboard.member_workshop_code || '—' }</td>
+								<td>
+									<ToggleControl
+										__nextHasNoMarginBottom
+										checked={ !! Number( dashboard.is_active ) }
+										onChange={ () => handleToggleActive( dashboard ) }
+										label={ Number( dashboard.is_active ) ? 'Active' : 'Inactive' }
+									/>
+								</td>
 								<td>
 									<button
 										type="button"

@@ -362,6 +362,11 @@
 	background: var(--advdash-primary-light);
 }
 
+/* Status toggle – prevent label wrapping */
+.advdash-admin__list .components-toggle-control {
+	white-space: nowrap;
+}
+
 /* Stat badges */
 
 .advdash-admin__stat-badge {
@@ -401,12 +406,19 @@
 	color: #fff;
 }
 
+/* Give the Actions column enough room for both buttons */
+.advdash-admin__list table.wp-list-table th:last-child,
+.advdash-admin__list table.wp-list-table td:last-child {
+	width: 140px;
+}
+
 /* Action pill buttons */
 
 .advdash-admin__actions {
 	display: flex;
 	gap: 6px;
 	align-items: center;
+	flex-wrap: nowrap;
 }
 
 .advdash-admin__action-btn {

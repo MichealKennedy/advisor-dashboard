@@ -1,5 +1,5 @@
 import { useState, useEffect } from '@wordpress/element';
-import { TextControl, SelectControl, Button, Spinner, Notice } from '@wordpress/components';
+import { TextControl, SelectControl, Button, Spinner, Notice, ToggleControl } from '@wordpress/components';
 import apiFetch from '@wordpress/api-fetch';
 import { getDashboard, createDashboard, updateDashboard, addDashboardUser, removeDashboardUser } from '../../shared/api';
 import WebhookManager from './WebhookManager';
@@ -17,6 +17,7 @@ export default function DashboardEditor( { id, onBack } ) {
 	const [ error, setError ] = useState( null );
 	const [ notice, setNotice ] = useState( null );
 	const [ savedId, setSavedId ] = useState( id );
+	const [ isActive, setIsActive ] = useState( true );
 
 	// Fetch WP users for the advisor dropdown.
 	useEffect( () => {
@@ -56,6 +57,7 @@ export default function DashboardEditor( { id, onBack } ) {
 					setMemberWorkshopCode( data.member_workshop_code || '' );
 					setAssignedUsers( data.users || [] );
 					setSavedId( data.id );
+					setIsActive( data.is_active !== undefined ? !! Number( data.is_active ) : true );
 				} )
 				.catch( ( err ) => {
 					setError( err.message || 'Failed to load dashboard.' );
@@ -117,6 +119,7 @@ export default function DashboardEditor( { id, onBack } ) {
 			const data = {
 				name: name.trim(),
 				member_workshop_code: memberWorkshopCode.trim(),
+				is_active: isActive,
 			};
 
 			if ( isNew && ! savedId ) {
@@ -189,6 +192,17 @@ export default function DashboardEditor( { id, onBack } ) {
 					onChange={ setMemberWorkshopCode }
 					placeholder="e.g., SFG"
 					help="The advisor's member code used in HighLevel."
+				/>
+
+				<ToggleControl
+					__nextHasNoMarginBottom
+					label="Dashboard Active"
+					checked={ isActive }
+					onChange={ setIsActive }
+					help={ isActive
+						? 'This dashboard is active. Advisors can view it and webhooks will be processed.'
+						: 'This dashboard is inactive. Advisors will see an unavailable message and webhooks will be rejected.'
+					}
 				/>
 
 				<div className="advdash-admin__users-section">

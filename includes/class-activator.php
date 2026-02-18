@@ -24,6 +24,7 @@ class AdvDash_Activator {
 			wp_user_id bigint(20) unsigned NOT NULL,
 			name varchar(255) NOT NULL,
 			member_workshop_code varchar(100) DEFAULT NULL,
+			is_active tinyint(1) NOT NULL DEFAULT 1,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -293,6 +294,21 @@ class AdvDash_Activator {
 			);
 			if ( ! $new_index_exists ) {
 				$wpdb->query( "ALTER TABLE {$table_contacts} ADD KEY dashboard_status (dashboard_id, contact_status)" );
+			}
+		}
+
+		// Migration 2.1.0: Add is_active column to dashboards.
+		if ( version_compare( $old_version, '2.1.0', '<' ) ) {
+			$col_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_dashboards}'
+				   AND COLUMN_NAME = 'is_active'"
+			);
+			if ( ! $col_exists ) {
+				$wpdb->query(
+					"ALTER TABLE {$table_dashboards} ADD COLUMN is_active tinyint(1) NOT NULL DEFAULT 1 AFTER member_workshop_code"
+				);
 			}
 		}
 

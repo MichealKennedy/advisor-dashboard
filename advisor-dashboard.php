@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Advisor Dashboard
- * Plugin URI:  https://profeds.com
+ * Plugin Name: Advisor Dashboards
+ * Plugin URI:  https://github.com/MichealKennedy/advisor-dashboard/tree/main
  * Description: Workshop advisor dashboard with webhook-driven contact management from HighLevel.
- * Version:     1.0.0
+ * Version:     1.0.1
  * Author:      Mike Kennedy
  * Author URI:  https://michealkennedy.com
  * License:     GPL-2.0-or-later
@@ -17,8 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ADVDASH_VERSION', '1.0.0' );
-define( 'ADVDASH_DB_VERSION', '2.0.0' );
+define( 'ADVDASH_VERSION', '1.0.1' );
+define( 'ADVDASH_DB_VERSION', '2.1.0' );
 define( 'ADVDASH_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ADVDASH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 

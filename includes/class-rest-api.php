@@ -333,6 +333,13 @@ class AdvDash_Rest_API {
 		return is_user_logged_in();
 	}
 
+	private function check_dashboard_active( $dashboard ) {
+		if ( ! current_user_can( 'manage_options' ) && ( empty( $dashboard->is_active ) || (int) $dashboard->is_active !== 1 ) ) {
+			return new WP_Error( 'dashboard_inactive', 'This dashboard is currently unavailable.', array( 'status' => 403 ) );
+		}
+		return null;
+	}
+
 	/* -------------------------------------------------------------------------
 	 * Admin: Dashboard CRUD
 	 * ---------------------------------------------------------------------- */
@@ -395,6 +402,9 @@ class AdvDash_Rest_API {
 		}
 		if ( $request->has_param( 'member_workshop_code' ) ) {
 			$data['member_workshop_code'] = $request->get_param( 'member_workshop_code' );
+		}
+		if ( $request->has_param( 'is_active' ) ) {
+			$data['is_active'] = $request->get_param( 'is_active' );
 		}
 
 		$result = $this->manager->update_dashboard( $id, $data );
@@ -556,6 +566,10 @@ class AdvDash_Rest_API {
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
 		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
+		}
 
 		$user_id         = get_current_user_id();
 		$user_dashboards = $this->manager->get_dashboards_by_user( $user_id );
@@ -581,6 +595,10 @@ class AdvDash_Rest_API {
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
 		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
+		}
 
 		$result = $this->manager->get_contacts( $dashboard->id, array(
 			'tab'          => $request->get_param( 'tab' ),
@@ -605,6 +623,10 @@ class AdvDash_Rest_API {
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
 		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
+		}
 
 		$date_field = $request->get_param( 'date_field' ) ?: 'workshop_date';
 		$dates = $this->manager->get_distinct_dates_with_counts( $dashboard->id, $request->get_param( 'tab' ), $date_field );
@@ -616,6 +638,10 @@ class AdvDash_Rest_API {
 		$dashboard = $this->resolve_dashboard( $request );
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
+		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
 		}
 
 		$summary = $this->manager->get_contact_summary( $dashboard->id, array(
@@ -656,6 +682,10 @@ class AdvDash_Rest_API {
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
 		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
+		}
 
 		$contact_id = (int) $request->get_param( 'contact_id' );
 		$update     = array();
@@ -684,6 +714,10 @@ class AdvDash_Rest_API {
 		$dashboard = $this->resolve_dashboard( $request );
 		if ( is_wp_error( $dashboard ) ) {
 			return $dashboard;
+		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
 		}
 
 		$contact_id = (int) $request->get_param( 'contact_id' );
