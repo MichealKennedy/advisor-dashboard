@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Advisor Dashboards
- * Plugin URI:  https://github.com/MichealKennedy/advisor-dashboard/tree/main
+ * Plugin URI:  https://github.com/MichealKennedy/advisor-dashboard
  * Description: Workshop advisor dashboard with webhook-driven contact management from HighLevel.
  * Version:     1.0.3
  * Author:      Mike Kennedy
