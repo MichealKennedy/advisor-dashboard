@@ -16,7 +16,7 @@ function HelpDialog( { onClose } ) {
 				<ol>
 					<li><strong>Generate the shared webhook</strong> &mdash; On the main page, click "Generate Shared Webhook URL" and copy the URL.</li>
 					<li><strong>Create a dashboard</strong> &mdash; Click "Add New Dashboard", give it a name, select the advisor's WordPress user account, and enter their unique member workshop code (e.g., "SFG").</li>
-					<li><strong>Set up HighLevel workflows</strong> &mdash; In your HighLevel workflow, add a Webhook action that POSTs to the shared URL. Include <code>advisor_code</code>, <code>action</code>, <code>contact_id</code>, and contact fields as Custom Data (see below).</li>
+					<li><strong>Set up HighLevel workflows</strong> &mdash; In your HighLevel workflow, add a Webhook action that POSTs to the shared URL. Include <code>advisor_code</code> and <code>action</code> as Custom Data (see below).</li>
 					<li><strong>Add the block to a page</strong> &mdash; In the WordPress block editor, add the "Advisor Dashboard" block to any page. When an advisor visits that page while logged in, they'll see their tabbed dashboard.</li>
 				</ol>
 
@@ -79,9 +79,12 @@ function HelpDialog( { onClose } ) {
 				<ul>
 					<li><code>advisor_code</code> &mdash; <strong>Required.</strong> The advisor's Member Workshop Code (e.g., "SFG"). Routes the contact to the correct dashboard.</li>
 					<li><code>action</code> &mdash; <strong>Required.</strong> One of: <code>register</code>, <code>cancel</code>, <code>attended</code>, <code>attended_other</code>, <code>fed_request</code>.</li>
-					<li><code>contact_id</code> &mdash; <strong>Required.</strong> The HighLevel contact ID. Used to identify and update existing contacts.</li>
-					<li><code>first_name</code>, <code>last_name</code>, <code>city</code>, <code>state</code>, etc. &mdash; Any contact fields you want to store. Use the HighLevel merge field tags to populate them.</li>
 				</ul>
+				<p>
+					<strong>Standard contact fields</strong> (<code>contact_id</code>, <code>first_name</code>, <code>last_name</code>, <code>city</code>, <code>state</code>, phone, email, etc.)
+					are included automatically by HighLevel &mdash; no setup needed.
+					Custom fields (e.g., <code>workshop_date</code>, food options, <code>retirement_system</code>) should be added as Custom Data if the workflow uses them.
+				</p>
 
 				<h3>Managing the Webhook</h3>
 				<ul>

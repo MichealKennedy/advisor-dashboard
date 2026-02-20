@@ -3,7 +3,7 @@
  * Plugin Name: Advisor Dashboards
  * Plugin URI:  https://github.com/MichealKennedy/advisor-dashboard/tree/main
  * Description: Workshop advisor dashboard with webhook-driven contact management from HighLevel.
- * Version:     1.0.2
+ * Version:     1.0.3
  * Author:      Mike Kennedy
  * Author URI:  https://michealkennedy.com
  * License:     GPL-2.0-or-later
