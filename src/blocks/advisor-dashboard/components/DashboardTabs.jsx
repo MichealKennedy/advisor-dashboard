@@ -1,4 +1,5 @@
 import ContactTable from './ContactTable';
+import AnalyticsView from './AnalyticsView';
 
 export default function DashboardTabs( { tabs, activeTab, onTabChange, dashboardId, isAdmin } ) {
 	const currentTab = tabs.find( ( t ) => t.key === activeTab );
@@ -23,7 +24,12 @@ export default function DashboardTabs( { tabs, activeTab, onTabChange, dashboard
 				) ) }
 			</nav>
 			<div className="advdash__tab-panel" role="tabpanel">
-				{ currentTab && (
+				{ currentTab && currentTab.key === 'analytics' ? (
+					<AnalyticsView
+						key={ `analytics-${ dashboardId || 'self' }` }
+						dashboardId={ dashboardId }
+					/>
+				) : currentTab ? (
 					<ContactTable
 						key={ `${ currentTab.key }-${ dashboardId || 'self' }` }
 						tab={ currentTab.key }
@@ -34,7 +40,7 @@ export default function DashboardTabs( { tabs, activeTab, onTabChange, dashboard
 						dashboardId={ dashboardId }
 						isAdmin={ isAdmin }
 					/>
-				) }
+				) : null }
 			</div>
 		</div>
 	);

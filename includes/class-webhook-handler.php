@@ -13,6 +13,7 @@ class AdvDash_Webhook_Handler {
 		'attended',
 		'attended_other',
 		'fed_request',
+		'no_show',
 	);
 
 	private static $action_status_map = array(
@@ -21,6 +22,7 @@ class AdvDash_Webhook_Handler {
 		'attended'       => 'attended_report',
 		'attended_other' => 'attended_other',
 		'fed_request'    => 'fed_request',
+		'no_show'        => 'no_show',
 	);
 
 	private static $field_map = array(

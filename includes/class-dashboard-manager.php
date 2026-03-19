@@ -148,6 +148,23 @@ class AdvDash_Dashboard_Manager {
 			$format[]            = '%d';
 		}
 
+		if ( isset( $data['analytics_enabled'] ) ) {
+			$update['analytics_enabled'] = absint( $data['analytics_enabled'] ) ? 1 : 0;
+			$format[]                    = '%d';
+		}
+
+		if ( array_key_exists( 'tab_visibility', $data ) ) {
+			$tv = $data['tab_visibility'];
+			if ( is_array( $tv ) ) {
+				$update['tab_visibility'] = wp_json_encode( $tv );
+			} elseif ( is_string( $tv ) && $tv !== '' ) {
+				$update['tab_visibility'] = $tv;
+			} else {
+				$update['tab_visibility'] = null;
+			}
+			$format[] = '%s';
+		}
+
 		if ( empty( $update ) ) {
 			return true;
 		}
@@ -768,5 +785,151 @@ class AdvDash_Dashboard_Manager {
 		) );
 
 		return $results ? $results : array();
+	}
+
+	/* -------------------------------------------------------------------------
+	 * Workshop Analytics
+	 * ---------------------------------------------------------------------- */
+
+	public function get_workshop_analytics( $dashboard_id, $args = array() ) {
+		global $wpdb;
+
+		$dashboard_id = absint( $dashboard_id );
+		$date_from    = isset( $args['date_from'] ) ? sanitize_text_field( $args['date_from'] ) : '';
+		$date_to      = isset( $args['date_to'] ) ? sanitize_text_field( $args['date_to'] ) : '';
+
+		// Build shared date-range clauses.
+		$date_where  = "dashboard_id = %d AND workshop_date IS NOT NULL AND workshop_date > '0000-00-00'";
+		$date_values = array( $dashboard_id );
+
+		if ( $date_from ) {
+			$date_where   .= ' AND workshop_date >= %s';
+			$date_values[] = $date_from;
+		}
+		if ( $date_to ) {
+			$date_where   .= ' AND workshop_date <= %s';
+			$date_values[] = $date_to;
+		}
+
+		// Query 1: per-date breakdown (DESC for table display).
+		$by_date_rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT
+				workshop_date,
+				COUNT(*) AS total_ever_registered,
+				SUM(contact_status = 'registered')       AS registered,
+				SUM(contact_status = 'cancelled')        AS cancelled,
+				SUM(contact_status = 'no_show')          AS no_show,
+				SUM(contact_status = 'attended_report')  AS attended_report,
+				SUM(contact_status = 'attended_other')   AS attended_other,
+				SUM(contact_status = 'fed_request')      AS fed_request,
+				SUM(contact_status IN ('attended_report','attended_other') AND spouse_name IS NOT NULL AND spouse_name != '') AS guests_attended,
+				SUM(contact_status = 'registered' AND spouse_name IS NOT NULL AND spouse_name != '') AS guests_registered
+			FROM {$this->table_contacts}
+			WHERE {$date_where}
+			GROUP BY workshop_date
+			ORDER BY workshop_date DESC",
+			...$date_values
+		) );
+
+		// Compute derived metrics and build totals.
+		$totals = array(
+			'registered'      => 0,
+			'cancelled'       => 0,
+			'no_show'         => 0,
+			'attended_report' => 0,
+			'attended_other'  => 0,
+			'fed_request'     => 0,
+			'guests'          => 0,
+		);
+
+		foreach ( $by_date_rows as $row ) {
+			$row->registered      = (int) $row->registered;
+			$row->cancelled       = (int) $row->cancelled;
+			$row->no_show         = (int) $row->no_show;
+			$row->attended_report = (int) $row->attended_report;
+			$row->attended_other  = (int) $row->attended_other;
+			$row->fed_request     = (int) $row->fed_request;
+			$row->guests_attended = (int) $row->guests_attended;
+			$row->guests_registered = (int) $row->guests_registered;
+			$total_ever           = (int) $row->total_ever_registered;
+
+			$attended = $row->attended_report + $row->attended_other;
+			$denominator_conv   = max( $total_ever - $row->cancelled, 1 );
+			$denominator_cancel = max( $total_ever, 1 );
+
+			$row->conversion_rate    = round( $attended / $denominator_conv * 100, 1 );
+			$row->cancellation_rate  = round( $row->cancelled / $denominator_cancel * 100, 1 );
+
+			$totals['registered']      += $row->registered;
+			$totals['cancelled']       += $row->cancelled;
+			$totals['no_show']         += $row->no_show;
+			$totals['attended_report'] += $row->attended_report;
+			$totals['attended_other']  += $row->attended_other;
+			$totals['fed_request']     += $row->fed_request;
+			$totals['guests']          += $row->guests_attended;
+		}
+
+		// Query 2: trend data (ASC for chart chronological order).
+		$trend_rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT workshop_date, COUNT(*) AS registrations
+			FROM {$this->table_contacts}
+			WHERE {$date_where}
+			GROUP BY workshop_date
+			ORDER BY workshop_date ASC",
+			...$date_values
+		) );
+
+		foreach ( $trend_rows as $row ) {
+			$row->registrations = (int) $row->registrations;
+		}
+
+		// Query 3: food breakdown (exclude cancelled).
+		$food_where  = "dashboard_id = %d AND contact_status != 'cancelled' AND workshop_date IS NOT NULL AND workshop_date > '0000-00-00'";
+		$food_values = array( $dashboard_id );
+		if ( $date_from ) {
+			$food_where   .= ' AND workshop_date >= %s';
+			$food_values[] = $date_from;
+		}
+		if ( $date_to ) {
+			$food_where   .= ' AND workshop_date <= %s';
+			$food_values[] = $date_to;
+		}
+
+		$food_fed    = $this->get_breakdown( $food_where, $food_values, 'food_option_fed' );
+		$food_spouse = $this->get_breakdown( $food_where, $food_values, 'food_option_spouse', "spouse_name IS NOT NULL AND spouse_name != ''" );
+
+		// Query 4: advisor pipeline (attended_report and fed_request contacts only).
+		$pipeline_rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT COALESCE(advisor_status, '') AS advisor_status, COUNT(*) AS count
+			FROM {$this->table_contacts}
+			WHERE dashboard_id = %d AND contact_status IN ('attended_report', 'fed_request')
+			GROUP BY advisor_status",
+			$dashboard_id
+		) );
+
+		// Sort pipeline in defined order.
+		$status_order = array( '', 'new', 'contacted', 'scheduled', 'completed', 'not_interested' );
+		$pipeline_map = array();
+		foreach ( $pipeline_rows as $row ) {
+			$pipeline_map[ $row->advisor_status ] = (int) $row->count;
+		}
+		$pipeline = array();
+		foreach ( $status_order as $status ) {
+			$pipeline[] = array(
+				'advisor_status' => $status,
+				'count'          => isset( $pipeline_map[ $status ] ) ? $pipeline_map[ $status ] : 0,
+			);
+		}
+
+		return array(
+			'by_date'          => $by_date_rows,
+			'trend'            => $trend_rows,
+			'food_breakdown'   => array(
+				'fed'    => $food_fed,
+				'spouse' => $food_spouse,
+			),
+			'advisor_pipeline' => $pipeline,
+			'totals'           => $totals,
+		);
 	}
 }

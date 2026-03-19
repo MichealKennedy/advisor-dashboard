@@ -280,6 +280,18 @@ class AdvDash_Rest_API {
 			),
 		) );
 
+		// Per-workshop analytics.
+		register_rest_route( $this->namespace, '/my-dashboard/analytics', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_my_analytics' ),
+			'permission_callback' => array( $this, 'check_logged_in' ),
+			'args'                => array(
+				'dashboard_id' => array( 'type' => 'integer', 'required' => false ),
+				'date_from'    => array( 'default' => '', 'type' => 'string' ),
+				'date_to'      => array( 'default' => '', 'type' => 'string' ),
+			),
+		) );
+
 		// Column visibility preferences (user meta).
 		register_rest_route( $this->namespace, '/my-dashboard/column-prefs', array(
 			'methods'             => 'PUT',
@@ -333,6 +345,21 @@ class AdvDash_Rest_API {
 		return is_user_logged_in();
 	}
 
+	/**
+	 * Decode the tab_visibility JSON string on a dashboard object (or array of objects)
+	 * so that the REST response contains a proper JSON object, not a raw string.
+	 */
+	private function prepare_dashboard( $dashboard ) {
+		if ( ! $dashboard ) {
+			return $dashboard;
+		}
+		$tv = isset( $dashboard->tab_visibility ) ? $dashboard->tab_visibility : null;
+		$dashboard->tab_visibility = ( $tv && is_string( $tv ) )
+			? json_decode( $tv, false ) ?: new stdClass()
+			: new stdClass();
+		return $dashboard;
+	}
+
 	private function check_dashboard_active( $dashboard ) {
 		if ( ! current_user_can( 'manage_options' ) && ( empty( $dashboard->is_active ) || (int) $dashboard->is_active !== 1 ) ) {
 			return new WP_Error( 'dashboard_inactive', 'This dashboard is currently unavailable.', array( 'status' => 403 ) );
@@ -346,7 +373,7 @@ class AdvDash_Rest_API {
 
 	public function get_dashboards( WP_REST_Request $request ) {
 		$dashboards = $this->manager->get_dashboards();
-		return new WP_REST_Response( $dashboards, 200 );
+		return new WP_REST_Response( array_map( array( $this, 'prepare_dashboard' ), $dashboards ), 200 );
 	}
 
 	public function get_dashboard( WP_REST_Request $request ) {
@@ -356,7 +383,7 @@ class AdvDash_Rest_API {
 			return new WP_Error( 'not_found', 'Dashboard not found.', array( 'status' => 404 ) );
 		}
 
-		return new WP_REST_Response( $dashboard, 200 );
+		return new WP_REST_Response( $this->prepare_dashboard( $dashboard ), 200 );
 	}
 
 	public function create_dashboard( WP_REST_Request $request ) {
@@ -385,7 +412,7 @@ class AdvDash_Rest_API {
 			$dashboard = $this->manager->get_dashboard( $dashboard->id );
 		}
 
-		return new WP_REST_Response( $dashboard, 201 );
+		return new WP_REST_Response( $this->prepare_dashboard( $dashboard ), 201 );
 	}
 
 	public function update_dashboard( WP_REST_Request $request ) {
@@ -406,6 +433,12 @@ class AdvDash_Rest_API {
 		if ( $request->has_param( 'is_active' ) ) {
 			$data['is_active'] = $request->get_param( 'is_active' );
 		}
+		if ( $request->has_param( 'analytics_enabled' ) ) {
+			$data['analytics_enabled'] = $request->get_param( 'analytics_enabled' );
+		}
+		if ( $request->has_param( 'tab_visibility' ) ) {
+			$data['tab_visibility'] = $request->get_param( 'tab_visibility' );
+		}
 
 		$result = $this->manager->update_dashboard( $id, $data );
 
@@ -413,7 +446,7 @@ class AdvDash_Rest_API {
 			return new WP_Error( 'update_failed', 'Failed to update dashboard.', array( 'status' => 500 ) );
 		}
 
-		return new WP_REST_Response( $this->manager->get_dashboard( $id ), 200 );
+		return new WP_REST_Response( $this->prepare_dashboard( $this->manager->get_dashboard( $id ) ), 200 );
 	}
 
 	public function delete_dashboard( WP_REST_Request $request ) {
@@ -654,6 +687,27 @@ class AdvDash_Rest_API {
 		return new WP_REST_Response( $summary, 200 );
 	}
 
+	public function get_my_analytics( WP_REST_Request $request ) {
+		$dashboard = $this->resolve_dashboard( $request );
+		if ( is_wp_error( $dashboard ) ) {
+			return $dashboard;
+		}
+		$inactive_check = $this->check_dashboard_active( $dashboard );
+		if ( $inactive_check ) {
+			return $inactive_check;
+		}
+		if ( isset( $dashboard->analytics_enabled ) && ! (int) $dashboard->analytics_enabled ) {
+			return new WP_Error( 'analytics_disabled', 'Analytics is not enabled for this dashboard.', array( 'status' => 403 ) );
+		}
+
+		$data = $this->manager->get_workshop_analytics( $dashboard->id, array(
+			'date_from' => sanitize_text_field( $request->get_param( 'date_from' ) ),
+			'date_to'   => sanitize_text_field( $request->get_param( 'date_to' ) ),
+		) );
+
+		return new WP_REST_Response( $data, 200 );
+	}
+
 	public function save_column_prefs( WP_REST_Request $request ) {
 		$user_id = get_current_user_id();
 		$prefs   = $request->get_param( 'prefs' );
@@ -862,4 +916,5 @@ class AdvDash_Rest_API {
 			'status_code' => $status,
 		), 200 );
 	}
+
 }

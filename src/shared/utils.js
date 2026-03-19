@@ -127,6 +127,9 @@ export const TAB_CONFIG = [
 
 export const VALID_TABS = TAB_CONFIG.map( ( t ) => t.key );
 
+export const ANALYTICS_TAB_KEY = 'analytics';
+export const ALL_VALID_TABS = [ ...VALID_TABS, ANALYTICS_TAB_KEY ];
+
 export const ADVISOR_STATUSES = [
 	{ value: '', label: 'No Status' },
 	{ value: 'new', label: 'New' },

@@ -25,6 +25,8 @@ class AdvDash_Activator {
 			name varchar(255) NOT NULL,
 			member_workshop_code varchar(100) DEFAULT NULL,
 			is_active tinyint(1) NOT NULL DEFAULT 1,
+			analytics_enabled tinyint(1) NOT NULL DEFAULT 1,
+			tab_visibility text DEFAULT NULL,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -308,6 +310,36 @@ class AdvDash_Activator {
 			if ( ! $col_exists ) {
 				$wpdb->query(
 					"ALTER TABLE {$table_dashboards} ADD COLUMN is_active tinyint(1) NOT NULL DEFAULT 1 AFTER member_workshop_code"
+				);
+			}
+		}
+
+		// Migration 2.2.0: Add analytics_enabled column to dashboards.
+		if ( version_compare( $old_version, '2.2.0', '<' ) ) {
+			$col_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_dashboards}'
+				   AND COLUMN_NAME = 'analytics_enabled'"
+			);
+			if ( ! $col_exists ) {
+				$wpdb->query(
+					"ALTER TABLE {$table_dashboards} ADD COLUMN analytics_enabled tinyint(1) NOT NULL DEFAULT 1 AFTER is_active"
+				);
+			}
+		}
+
+		// Migration 2.3.0: Add tab_visibility column to dashboards.
+		if ( version_compare( $old_version, '2.3.0', '<' ) ) {
+			$col_exists = $wpdb->get_var(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = '{$table_dashboards}'
+				   AND COLUMN_NAME = 'tab_visibility'"
+			);
+			if ( ! $col_exists ) {
+				$wpdb->query(
+					"ALTER TABLE {$table_dashboards} ADD COLUMN tab_visibility text DEFAULT NULL AFTER analytics_enabled"
 				);
 			}
 		}

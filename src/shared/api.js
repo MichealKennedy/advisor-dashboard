@@ -92,6 +92,16 @@ export const getContactSummary = ( params ) => {
 	return apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/contact-summary?${ query.toString() }` } );
 };
 
+export const getAnalytics = ( params ) => {
+	const query = new URLSearchParams();
+	Object.entries( params ).forEach( ( [ key, value ] ) => {
+		if ( value !== undefined && value !== null && value !== '' ) {
+			query.set( key, value );
+		}
+	} );
+	return apiFetch( { path: `/advisor-dashboard/v1/my-dashboard/analytics?${ query.toString() }` } );
+};
+
 export const saveColumnPrefs = ( prefs ) =>
 	apiFetch( { path: '/advisor-dashboard/v1/my-dashboard/column-prefs', method: 'PUT', data: { prefs } } );
 
@@ -171,3 +181,4 @@ export const setFailureAlertSettings = ( data ) =>
 
 export const testFailureAlert = () =>
 	apiFetch( { path: '/advisor-dashboard/v1/settings/failure-alerts/test', method: 'POST' } );
+

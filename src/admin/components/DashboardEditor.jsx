@@ -2,6 +2,7 @@ import { useState, useEffect } from '@wordpress/element';
 import { TextControl, SelectControl, Button, Spinner, Notice, ToggleControl } from '@wordpress/components';
 import apiFetch from '@wordpress/api-fetch';
 import { getDashboard, createDashboard, updateDashboard, addDashboardUser, removeDashboardUser } from '../../shared/api';
+import { TAB_CONFIG } from '../../shared/utils';
 import WebhookManager from './WebhookManager';
 
 export default function DashboardEditor( { id, onBack } ) {
@@ -18,6 +19,8 @@ export default function DashboardEditor( { id, onBack } ) {
 	const [ notice, setNotice ] = useState( null );
 	const [ savedId, setSavedId ] = useState( id );
 	const [ isActive, setIsActive ] = useState( true );
+	const [ analyticsEnabled, setAnalyticsEnabled ] = useState( true );
+	const [ tabVisibility, setTabVisibility ] = useState( {} );
 
 	// Fetch WP users for the advisor dropdown.
 	useEffect( () => {
@@ -58,6 +61,10 @@ export default function DashboardEditor( { id, onBack } ) {
 					setAssignedUsers( data.users || [] );
 					setSavedId( data.id );
 					setIsActive( data.is_active !== undefined ? !! Number( data.is_active ) : true );
+					setAnalyticsEnabled( data.analytics_enabled !== undefined ? !! Number( data.analytics_enabled ) : true );
+					// tab_visibility comes from REST API already decoded as an object.
+					const tv = data.tab_visibility;
+					setTabVisibility( ( tv && typeof tv === 'object' ) ? tv : {} );
 				} )
 				.catch( ( err ) => {
 					setError( err.message || 'Failed to load dashboard.' );
@@ -120,6 +127,8 @@ export default function DashboardEditor( { id, onBack } ) {
 				name: name.trim(),
 				member_workshop_code: memberWorkshopCode.trim(),
 				is_active: isActive,
+				analytics_enabled: analyticsEnabled,
+				tab_visibility: tabVisibility,
 			};
 
 			if ( isNew && ! savedId ) {
@@ -204,6 +213,35 @@ export default function DashboardEditor( { id, onBack } ) {
 						: 'This dashboard is inactive. Advisors will see an unavailable message and webhooks will be rejected.'
 					}
 				/>
+
+				<ToggleControl
+					__nextHasNoMarginBottom
+					label="Show Analytics Tab"
+					checked={ analyticsEnabled }
+					onChange={ setAnalyticsEnabled }
+					help={ analyticsEnabled
+						? 'Advisors see the Analytics tab with per-workshop trends, conversion funnel, food preferences, and pipeline stats.'
+						: 'The Analytics tab is hidden for advisors on this dashboard.'
+					}
+				/>
+
+				<div className="advdash-admin__tab-visibility">
+					<h4>Visible Tabs</h4>
+					{ TAB_CONFIG.map( ( tab ) => {
+						const visible = tabVisibility[ tab.key ] !== false;
+						return (
+							<ToggleControl
+								key={ tab.key }
+								__nextHasNoMarginBottom
+								label={ tab.label }
+								checked={ visible }
+								onChange={ ( checked ) =>
+									setTabVisibility( ( prev ) => ( { ...prev, [ tab.key ]: checked } ) )
+								}
+							/>
+						);
+					} ) }
+				</div>
 
 				<div className="advdash-admin__users-section">
 					<h4>Assigned Advisors</h4>

@@ -26,7 +26,7 @@ $is_admin         = current_user_can( 'manage_options' );
 // Non-admin users only see active dashboards.
 $active_filter = $is_admin ? '' : 'AND d.is_active = 1';
 $user_dashboards = $wpdb->get_results( $wpdb->prepare(
-	"SELECT d.id, d.name FROM {$table_dashboards} d
+	"SELECT d.id, d.name, d.analytics_enabled, d.tab_visibility FROM {$table_dashboards} d
 	 INNER JOIN {$table_users} du ON du.dashboard_id = d.id
 	 WHERE du.wp_user_id = %d {$active_filter}
 	 ORDER BY d.name ASC",
@@ -39,12 +39,12 @@ $dashboard = ! empty( $user_dashboards ) ? $user_dashboards[0] : null;
 $all_dashboards = array();
 if ( $is_admin ) {
 	$all_dashboards = $wpdb->get_results(
-		"SELECT d.id, d.name, d.is_active,
+		"SELECT d.id, d.name, d.is_active, d.analytics_enabled, d.tab_visibility,
 			GROUP_CONCAT(u.display_name ORDER BY du.created_at SEPARATOR ', ') AS user_display_name
 		 FROM {$table_dashboards} d
 		 LEFT JOIN {$table_users} du ON du.dashboard_id = d.id
 		 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
-		 GROUP BY d.id, d.name, d.is_active
+		 GROUP BY d.id, d.name, d.is_active, d.analytics_enabled, d.tab_visibility
 		 ORDER BY d.name ASC"
 	);
 }
@@ -86,23 +86,37 @@ wp_localize_script( $view_handle, 'advdashFrontend', array(
 	'dashboardName'  => $dashboard->name,
 	'isAdmin'        => $is_admin,
 	'allDashboards'  => $is_admin ? array_map( function( $d ) {
+		$tv = ( ! empty( $d->tab_visibility ) && is_string( $d->tab_visibility ) )
+			? json_decode( $d->tab_visibility, true )
+			: null;
 		return array(
-			'id'        => (int) $d->id,
-			'name'      => $d->name,
-			'user'      => $d->user_display_name,
-			'is_active' => (bool) $d->is_active,
+			'id'               => (int) $d->id,
+			'name'             => $d->name,
+			'user'             => $d->user_display_name,
+			'is_active'        => (bool) $d->is_active,
+			'analytics_enabled' => (bool) $d->analytics_enabled,
+			'tab_visibility'   => $tv ?: new stdClass(),
 		);
 	}, $all_dashboards ) : array(),
 	'userDashboards' => ! $is_admin ? array_map( function( $d ) {
+		$tv = ( ! empty( $d->tab_visibility ) && is_string( $d->tab_visibility ) )
+			? json_decode( $d->tab_visibility, true )
+			: null;
 		return array(
-			'id'   => (int) $d->id,
-			'name' => $d->name,
+			'id'               => (int) $d->id,
+			'name'             => $d->name,
+			'analytics_enabled' => (bool) $d->analytics_enabled,
+			'tab_visibility'   => $tv ?: new stdClass(),
 		);
 	}, $user_dashboards ) : array(),
-	'columnPrefs'    => $column_prefs,
-	'customTabLabels' => ! empty( $attributes['customTabLabels'] )
+	'columnPrefs'       => $column_prefs,
+	'customTabLabels'   => ! empty( $attributes['customTabLabels'] )
 		? (object) $attributes['customTabLabels']
 		: new \stdClass(),
+	'analyticsEnabled'  => isset( $dashboard->analytics_enabled ) ? (bool) $dashboard->analytics_enabled : true,
+	'tabVisibility'     => ( ! empty( $dashboard->tab_visibility ) && is_string( $dashboard->tab_visibility ) )
+		? json_decode( $dashboard->tab_visibility, true )
+		: new stdClass(),
 ) );
 
 // Output the React mount point.

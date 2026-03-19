@@ -63,6 +63,11 @@ function HelpDialog( { onClose } ) {
 							<td><code>fed_request</code></td>
 							<td>Fed Employee Requested Advisor Report</td>
 						</tr>
+						<tr>
+							<td>Contact registered but did not attend</td>
+							<td><code>no_show</code></td>
+							<td>(tracked in Analytics tab only)</td>
+						</tr>
 					</tbody>
 				</table>
 
