@@ -27,24 +27,31 @@ class AdvDash_Dashboard_Manager {
 
 		$dashboards = $wpdb->get_results(
 			"SELECT d.*,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status != 'cancelled' ) AS contact_count,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'registered' ) AS tab_current_registrations,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'attended_report' ) AS tab_attended_report,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'attended_other' ) AS tab_attended_other,
-				( SELECT COUNT(*) FROM {$this->table_contacts} c WHERE c.dashboard_id = d.id AND c.contact_status = 'fed_request' ) AS tab_fed_request
+				COALESCE(SUM(c.contact_status != 'cancelled'), 0) AS contact_count,
+				COALESCE(SUM(c.contact_status = 'registered'), 0) AS tab_current_registrations,
+				COALESCE(SUM(c.contact_status = 'attended_report'), 0) AS tab_attended_report,
+				COALESCE(SUM(c.contact_status = 'attended_other'), 0) AS tab_attended_other,
+				COALESCE(SUM(c.contact_status = 'fed_request'), 0) AS tab_fed_request
 			FROM {$this->table_dashboards} d
+			LEFT JOIN {$this->table_contacts} c ON c.dashboard_id = d.id
+			GROUP BY d.id
 			ORDER BY d.created_at DESC"
 		);
 
+		$all_users = $wpdb->get_results(
+			"SELECT du.dashboard_id, du.wp_user_id, u.display_name
+			 FROM {$this->table_dashboard_users} du
+			 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
+			 ORDER BY du.created_at ASC"
+		);
+
+		$users_by_dashboard = array();
+		foreach ( $all_users as $user ) {
+			$users_by_dashboard[ $user->dashboard_id ][] = $user;
+		}
+
 		foreach ( $dashboards as $dashboard ) {
-			$users = $wpdb->get_results( $wpdb->prepare(
-				"SELECT du.wp_user_id, u.display_name
-				 FROM {$this->table_dashboard_users} du
-				 LEFT JOIN {$wpdb->users} u ON u.ID = du.wp_user_id
-				 WHERE du.dashboard_id = %d
-				 ORDER BY du.created_at ASC",
-				$dashboard->id
-			) );
+			$users                         = isset( $users_by_dashboard[ $dashboard->id ] ) ? $users_by_dashboard[ $dashboard->id ] : array();
 			$dashboard->users              = $users;
 			$dashboard->user_display_name  = implode( ', ', wp_list_pluck( $users, 'display_name' ) );
 		}
@@ -80,7 +87,7 @@ class AdvDash_Dashboard_Manager {
 		return $wpdb->get_row( $wpdb->prepare(
 			"SELECT d.* FROM {$this->table_dashboards} d
 			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
-			 WHERE du.wp_user_id = %d AND d.is_active = 1
+			 WHERE du.wp_user_id = %d
 			 LIMIT 1",
 			$wp_user_id
 		) );
@@ -92,7 +99,7 @@ class AdvDash_Dashboard_Manager {
 		return $wpdb->get_results( $wpdb->prepare(
 			"SELECT d.* FROM {$this->table_dashboards} d
 			 INNER JOIN {$this->table_dashboard_users} du ON du.dashboard_id = d.id
-			 WHERE du.wp_user_id = %d AND d.is_active = 1
+			 WHERE du.wp_user_id = %d
 			 ORDER BY d.name ASC",
 			$wp_user_id
 		) );
@@ -246,7 +253,7 @@ class AdvDash_Dashboard_Manager {
 		global $wpdb;
 
 		return $wpdb->get_row( $wpdb->prepare(
-			"SELECT * FROM {$this->table_dashboards} WHERE LOWER(member_workshop_code) = LOWER(%s)",
+			"SELECT * FROM {$this->table_dashboards} WHERE member_workshop_code = %s",
 			$code
 		) );
 	}
@@ -545,7 +552,7 @@ class AdvDash_Dashboard_Manager {
 			array( '%d', '%d' )
 		);
 
-		return false !== $result && $wpdb->rows_affected > 0;
+		return false !== $result;
 	}
 
 	public function delete_contact( $contact_id, $dashboard_id ) {
@@ -743,7 +750,7 @@ class AdvDash_Dashboard_Manager {
 			);
 		}
 
-		return $wpdb->query( "TRUNCATE TABLE {$this->table_webhook_logs}" );
+		return $wpdb->query( "DELETE FROM {$this->table_webhook_logs}" );
 	}
 
 	/**
@@ -899,12 +906,22 @@ class AdvDash_Dashboard_Manager {
 		$food_spouse = $this->get_breakdown( $food_where, $food_values, 'food_option_spouse', "spouse_name IS NOT NULL AND spouse_name != ''" );
 
 		// Query 4: advisor pipeline (attended_report and fed_request contacts only).
+		$pipeline_where  = "dashboard_id = %d AND contact_status IN ('attended_report', 'fed_request') AND workshop_date IS NOT NULL AND workshop_date > '0000-00-00'";
+		$pipeline_values = array( $dashboard_id );
+		if ( $date_from ) {
+			$pipeline_where   .= ' AND workshop_date >= %s';
+			$pipeline_values[] = $date_from;
+		}
+		if ( $date_to ) {
+			$pipeline_where   .= ' AND workshop_date <= %s';
+			$pipeline_values[] = $date_to;
+		}
 		$pipeline_rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT COALESCE(advisor_status, '') AS advisor_status, COUNT(*) AS count
 			FROM {$this->table_contacts}
-			WHERE dashboard_id = %d AND contact_status IN ('attended_report', 'fed_request')
+			WHERE {$pipeline_where}
 			GROUP BY advisor_status",
-			$dashboard_id
+			...$pipeline_values
 		) );
 
 		// Sort pipeline in defined order.

@@ -400,19 +400,32 @@ class AdvDash_Rest_API {
 		}
 
 		// Add additional users if provided via wp_user_ids array.
-		$user_ids = $request->get_param( 'wp_user_ids' );
+		$user_ids     = $request->get_param( 'wp_user_ids' );
+		$invalid_uids = array();
 		if ( is_array( $user_ids ) ) {
 			foreach ( $user_ids as $uid ) {
 				$uid = absint( $uid );
-				if ( $uid && $uid !== absint( $data['wp_user_id'] ) ) {
-					$this->manager->add_dashboard_user( $dashboard->id, $uid );
+				if ( ! $uid || $uid === absint( $data['wp_user_id'] ) ) {
+					continue;
 				}
+				if ( ! get_userdata( $uid ) ) {
+					$invalid_uids[] = $uid;
+					continue;
+				}
+				$this->manager->add_dashboard_user( $dashboard->id, $uid );
 			}
 			// Refresh to get updated user list.
 			$dashboard = $this->manager->get_dashboard( $dashboard->id );
 		}
 
-		return new WP_REST_Response( $this->prepare_dashboard( $dashboard ), 201 );
+		$response = $this->prepare_dashboard( $dashboard );
+		if ( ! empty( $invalid_uids ) ) {
+			$response['warnings'] = array(
+				'invalid_user_ids' => $invalid_uids,
+			);
+		}
+
+		return new WP_REST_Response( $response, 201 );
 	}
 
 	public function update_dashboard( WP_REST_Request $request ) {
@@ -827,7 +840,11 @@ class AdvDash_Rest_API {
 
 	public function clear_webhook_logs( WP_REST_Request $request ) {
 		$dashboard_id = $request->get_param( 'dashboard_id' );
-		$this->manager->clear_webhook_logs( $dashboard_id ? (int) $dashboard_id : null );
+		$result = $this->manager->clear_webhook_logs( $dashboard_id ? (int) $dashboard_id : null );
+
+		if ( false === $result ) {
+			return new WP_Error( 'clear_failed', 'Failed to clear webhook logs.', array( 'status' => 500 ) );
+		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}

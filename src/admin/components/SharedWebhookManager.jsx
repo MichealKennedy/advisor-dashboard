@@ -141,7 +141,7 @@ export default function SharedWebhookManager() {
 						<summary>Example payload</summary>
 						<pre>{ JSON.stringify( {
 							advisor_code: 'SFG',
-							tab: 'current_registrations',
+							action: 'register',
 							contact_id: 'hl_abc123',
 							first_name: 'John',
 							last_name: 'Doe',

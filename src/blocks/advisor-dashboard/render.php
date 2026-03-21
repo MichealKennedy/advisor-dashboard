@@ -23,17 +23,37 @@ $table_users      = $wpdb->prefix . 'advdash_dashboard_users';
 $is_admin         = current_user_can( 'manage_options' );
 
 // Find dashboards assigned to this user via junction table.
-// Non-admin users only see active dashboards.
-$active_filter = $is_admin ? '' : 'AND d.is_active = 1';
 $user_dashboards = $wpdb->get_results( $wpdb->prepare(
-	"SELECT d.id, d.name, d.analytics_enabled, d.tab_visibility FROM {$table_dashboards} d
+	"SELECT d.id, d.name, d.is_active, d.analytics_enabled, d.tab_visibility FROM {$table_dashboards} d
 	 INNER JOIN {$table_users} du ON du.dashboard_id = d.id
-	 WHERE du.wp_user_id = %d {$active_filter}
+	 WHERE du.wp_user_id = %d
 	 ORDER BY d.name ASC",
 	$user_id
 ) );
 
-$dashboard = ! empty( $user_dashboards ) ? $user_dashboards[0] : null;
+// Non-admin users: prefer the first active dashboard; fall back to first inactive.
+$dashboard = null;
+if ( ! empty( $user_dashboards ) ) {
+	foreach ( $user_dashboards as $d ) {
+		if ( ! empty( $d->is_active ) && (int) $d->is_active === 1 ) {
+			$dashboard = $d;
+			break;
+		}
+	}
+	if ( ! $dashboard ) {
+		$dashboard = $user_dashboards[0];
+	}
+}
+
+// Show an "unavailable" message for non-admin users on an inactive dashboard.
+if ( $dashboard && ! $is_admin && ( empty( $dashboard->is_active ) || (int) $dashboard->is_active !== 1 ) ) {
+	printf(
+		'<div %s><div class="advdash-no-dashboard"><p>%s</p></div></div>',
+		get_block_wrapper_attributes(),
+		esc_html__( 'This dashboard is currently unavailable. Please contact your administrator.', 'advisor-dashboard' )
+	);
+	return;
+}
 
 // For admins, fetch all dashboards so they can switch between them.
 $all_dashboards = array();

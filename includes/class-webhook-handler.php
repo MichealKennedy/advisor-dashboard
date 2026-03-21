@@ -439,6 +439,20 @@ class AdvDash_Webhook_Handler {
 			return new WP_Error( 'not_found', 'No matching contact found to cancel.', array( 'status' => 404 ) );
 		}
 
+		// Already cancelled — return success (idempotent) without overwriting previous_status.
+		if ( 'cancelled' === $existing->contact_status ) {
+			return new WP_REST_Response(
+				array(
+					'success'        => true,
+					'action'         => 'cancel',
+					'contact_status' => 'cancelled',
+					'contact_id'     => $contact_id,
+					'note'           => 'Already cancelled.',
+				),
+				200
+			);
+		}
+
 		// Build update data: set previous_status, contact_status, and merge any extra fields.
 		$update_data = array(
 			'previous_status' => $existing->contact_status,

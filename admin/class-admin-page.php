@@ -9,8 +9,8 @@ class AdvDash_Admin_Page {
 
 	public static function register_menu() {
 		self::$hook_suffix = add_menu_page(
-			'Dashboards',
-			'Dashboards',
+			'Advisor DBs',
+			'Advisor DBs',
 			'manage_options',
 			'advisor-dashboard',
 			array( __CLASS__, 'render_page' ),
